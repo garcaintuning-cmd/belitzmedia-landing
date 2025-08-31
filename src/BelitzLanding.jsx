@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, ArrowUpRight } from "lucide-react";
 
 // Toggle: Autoplay beim Seitenaufruf (startet bei erster User‑Interaktion automatisch)
-const AUTOPLAY = true;
+const AUTOPLAY = false;
 
 // ===== Minimal, self‑contained React file (no TS, no motion) =====
 const DEFAULT_CONTENT = {
@@ -76,6 +76,7 @@ export function computeCrossfade(r){
 export default function BelitzLanding() {
   const { content, setContent } = useContent();
   const [audioOn, setAudioOn] = useState(false);
+  const [volume, setVolume] = useState(0.6);
   
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [audioLevel, setAudioLevel] = useState(0);
@@ -115,6 +116,13 @@ export default function BelitzLanding() {
       window.removeEventListener('touchstart', tryStart);
     };
   }, []);
+
+  // ===== Volume apply effect (react to UI slider) =====
+  useEffect(() => {
+    const a = audioRef.current; if (!a) return; const t = a.ctx.currentTime;
+    try { a.master.gain.cancelScheduledValues && a.master.gain.cancelScheduledValues(t); } catch {}
+    a.master.gain.setTargetAtTime(Math.max(0.0001, volume), t, 0.08);
+  }, [volume]);
 
   // ===== stronger storm audio with scroll‑reactive tone (no sidechain) =====
   function startStorm() {
@@ -173,7 +181,7 @@ export default function BelitzLanding() {
   };
   apply(); const onScroll=()=>apply(); window.addEventListener('scroll', onScroll); scrollRef.current = onScroll;
 
-  master.gain.exponentialRampToValueAtTime(0.57, ctx.currentTime + 0.8);
+  master.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), ctx.currentTime + 0.4);
   audioRef.current = { ctx, master, preGain, comp, lowshelf, lowpass, analyser, data, raf, elDry, elWet, elSingle, src, dryGain, wetGain };
   setAudioOn(true);
 }
@@ -229,6 +237,10 @@ export default function BelitzLanding() {
             <span aria-live="polite" className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider" style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent', color: audioOn ? '#111' : content.colorPrimary }}>
               {audioOn ? 'ON' : 'OFF'}
             </span>
+            <div className="ml-2 flex items-center gap-2">
+              <input type="range" min="0" max="100" value={Math.round(volume*100)} onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)} className="h-1.5 w-28 cursor-pointer" style={{ accentColor: content.colorPrimary }} />
+              <span className="text-[10px] tabular-nums opacity-80">{Math.round(volume*100)}%</span>
+            </div>
           </div>
         </div>
       </nav>
