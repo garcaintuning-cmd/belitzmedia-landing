@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, ArrowUpRight } from "lucide-react";
 
+// Toggle: Autoplay beim Seitenaufruf (startet bei erster User‑Interaktion automatisch)
+const AUTOPLAY = true;
+
 // ===== Minimal, self‑contained React file (no TS, no motion) =====
 const DEFAULT_CONTENT = {
   heroTitle: "Cutting‑Edge Creative &\nHigh‑Impact Editing",
@@ -85,6 +88,44 @@ export default function BelitzLanding() {
     const m = (e) => setMouse({ x: e.clientX, y: e.clientY });
     window.addEventListener("mousemove", m);
     return () => window.removeEventListener("mousemove", m);
+  }, []);
+
+  // ===== Autoplay-Hook =====
+  useEffect(() => {
+    if (!AUTOPLAY) return;
+    let fired = false;
+
+    const tryStart = async () => {
+      if (fired) return; fired = true;
+      if (!audioRef.current) startStorm();
+      try {
+        const a = audioRef.current;
+        if (a?.ctx?.state !== 'running') await a.ctx.resume();
+        if (a?.elDry) await a.elDry.play().catch(()=>{});
+        if (a?.elWet) await a.elWet.play().catch(()=>{});
+      } catch {}
+      cleanup();
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointerdown', tryStart);
+      window.removeEventListener('keydown', tryStart);
+      window.removeEventListener('touchstart', tryStart);
+      window.removeEventListener('scroll', tryStart);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+
+    const onVis = () => { if (document.visibilityState === 'visible') tryStart(); };
+
+    // Versuch sofort (kann geblockt sein) + Start bei Interaktion
+    setTimeout(() => { if (!audioRef.current) startStorm(); }, 300);
+    window.addEventListener('pointerdown', tryStart);
+    window.addEventListener('keydown', tryStart);
+    window.addEventListener('touchstart', tryStart, { passive: true });
+    window.addEventListener('scroll', tryStart, { passive: true });
+    document.addEventListener('visibilitychange', onVis);
+
+    return cleanup;
   }, []);
 
   // ===== stronger storm audio with scroll‑reactive tone (no sidechain) =====
@@ -177,11 +218,7 @@ export default function BelitzLanding() {
     <div className="min-h-screen w-full overflow-x-hidden bg-black text-white" style={{ backgroundColor: content.bg }}>
       <div className="bm-texture" />
       {/* HUD */}
-      <div className="fixed right-4 top-4 z-50 flex items-center gap-2">
-        <button onClick={toggleAudio} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs hover:shadow" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
-          {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>} <span className="uppercase tracking-wider">Storm</span>
-        </button>
-      </div>
+      
 
       {/* Spotlight */}
       <div className="pointer-events-none fixed inset-0 z-10" style={{ background: `radial-gradient(520px circle at ${mouse.x}px ${mouse.y}px, rgba(255,212,0,0.18), transparent 60%)`, mixBlendMode: "screen" }} />
@@ -194,9 +231,17 @@ export default function BelitzLanding() {
           </div>
           <span className="text-lg font-semibold tracking-wide">BELITZMEDIA</span>
         </div>
-        <div className="hidden gap-6 text-sm md:flex">
+        <div className="flex items-center gap-4 text-sm">
           <a className="opacity-80 transition hover:opacity-100" href="#work">Work</a>
           <a className="opacity-80 transition hover:opacity-100" href="#contact">Contact</a>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleAudio} className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs hover:shadow" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
+              {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>} <span className="uppercase tracking-wider">Storm</span>
+            </button>
+            <span aria-live="polite" className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider" style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent', color: audioOn ? '#111' : content.colorPrimary }}>
+              {audioOn ? 'ON' : 'OFF'}
+            </span>
+          </div>
         </div>
       </nav>
 
