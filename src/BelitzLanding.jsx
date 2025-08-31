@@ -90,13 +90,11 @@ export default function BelitzLanding() {
     return () => window.removeEventListener("mousemove", m);
   }, []);
 
-  // ===== Autoplay-Hook =====
+  // ===== Autoplay-Hook (fix: kein Vorab-Start ohne User-Geste, verhindert Doppelklick) =====
   useEffect(() => {
     if (!AUTOPLAY) return;
-    let fired = false;
 
     const tryStart = async () => {
-      if (fired) return; fired = true;
       if (!audioRef.current) startStorm();
       try {
         const a = audioRef.current;
@@ -104,28 +102,18 @@ export default function BelitzLanding() {
         if (a?.elDry) await a.elDry.play().catch(()=>{});
         if (a?.elWet) await a.elWet.play().catch(()=>{});
       } catch {}
-      cleanup();
     };
 
-    const cleanup = () => {
+    // Nur auf explizite Gesten hören – kein setTimeout/scroll/visibility-change
+    window.addEventListener('pointerdown', tryStart, { once: true });
+    window.addEventListener('keydown', tryStart, { once: true });
+    window.addEventListener('touchstart', tryStart, { once: true, passive: true });
+
+    return () => {
       window.removeEventListener('pointerdown', tryStart);
       window.removeEventListener('keydown', tryStart);
       window.removeEventListener('touchstart', tryStart);
-      window.removeEventListener('scroll', tryStart);
-      document.removeEventListener('visibilitychange', onVis);
     };
-
-    const onVis = () => { if (document.visibilityState === 'visible') tryStart(); };
-
-    // Versuch sofort (kann geblockt sein) + Start bei Interaktion
-    setTimeout(() => { if (!audioRef.current) startStorm(); }, 300);
-    window.addEventListener('pointerdown', tryStart);
-    window.addEventListener('keydown', tryStart);
-    window.addEventListener('touchstart', tryStart, { passive: true });
-    window.addEventListener('scroll', tryStart, { passive: true });
-    document.addEventListener('visibilitychange', onVis);
-
-    return cleanup;
   }, []);
 
   // ===== stronger storm audio with scroll‑reactive tone (no sidechain) =====
@@ -248,11 +236,8 @@ export default function BelitzLanding() {
       {/* HERO */}
       <section className="relative z-20 mx-auto max-w-6xl px-6 pb-12">
         <div className="relative mb-8 overflow-hidden rounded-3xl border bg-black/30" style={{borderColor: content.colorPrimary + '55', boxShadow: '0 0 0 1px ' + content.colorPrimary + '22 inset, 0 0 28px ' + content.colorPrimary + '22'}}>
-          <div className="absolute left-4 top-4 z-10 rounded-full bg-black/60 px-3 py-1 text-xs" style={{color:content.colorPrimary,border:`1px solid ${content.colorPrimary}55`}}>Interactive Logo</div>
-          {/* slow wipe overlay */}
-          <div className="bm-wipe-slow" />
-          <LogoLite color={content.colorPrimary} text="BELITZMEDIA" level={audioLevel} mouse={mouse}/>
-          
+          <div className="absolute left-4 top-4 z-10 rounded-full bg-black/60 px-3 py-1 text-xs" style={{color:content.colorPrimary,border:`1px solid ${content.colorPrimary}55`}}>Teaser Video</div>
+          <HeroVideo src="https://video.wixstatic.com/video/87dcf7_e2b871f973424f63b87abafd34a2d65b/1080p/mp4/file.mp4" color={content.colorPrimary} />
         </div>
         <h1 className="whitespace-pre-line text-5xl font-black leading-tight tracking-tight md:text-7xl">{content.heroTitle}</h1>
         <p className="mt-6 max-w-2xl text-white/70">{content.heroCopy}</p>
@@ -372,6 +357,53 @@ function LogoLite({ color, text, level, mouse }){
           <div className="absolute left-1/2 top-full h-6 w-[60%] -translate-x-1/2 -translate-y-2 rounded-full opacity-60 blur-md" style={{background:'radial-gradient(60% 120% at 50% 0%, rgba(0,0,0,0.55), transparent 70%)'}}/>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ===== Hero Video (autoplay muted, subtle hotspot hover) =====
+function HeroVideo({ src, color }){
+  const ref = useRef(null);
+  const [hover, setHover] = useState(false);
+  const [pos, setPos] = useState({x:50,y:50});
+  const move = (e)=>{
+    const el = ref.current; if(!el) return;
+    const r = el.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 100;
+    const y = ((e.clientY - r.top) / r.height) * 100;
+    setPos({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+  };
+  return (
+    <div ref={ref}
+         onMouseEnter={()=>setHover(true)}
+         onMouseLeave={()=>setHover(false)}
+         onMouseMove={move}
+         className="relative h-[400px] w-full overflow-hidden">
+      <video autoPlay muted playsInline loop preload="metadata"
+             className="absolute inset-0 h-full w-full object-cover"
+             style={{
+               transform: `scale(${hover?1.01:1})`,
+               filter: hover? 'contrast(1.06) saturate(1.06)' : 'none',
+               transition: 'transform 280ms ease, filter 280ms ease'
+             }}
+             onCanPlay={(e)=>{ try{ e.currentTarget.play(); }catch{} }}
+             src={src}/>
+
+      {/* Dynamischer Hotspot, folgt der Maus – kein stehender Sweep */}
+      <div className="pointer-events-none absolute inset-0 transition-opacity duration-300"
+           style={{
+             opacity: hover? 1 : 0,
+             mixBlendMode: 'screen',
+             background: `radial-gradient(220px 160px at ${pos.x}% ${pos.y}%, rgba(255,255,255,.085), transparent 60%)`
+           }}
+      />
+
+      {/* leichte Rand-Vignette für Tiefe */}
+      <div className="pointer-events-none absolute inset-0" style={{background:'radial-gradient(110% 80% at 50% 45%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.25) 100%)'}}/>
+
+      {/* dezenter Rahmen/Glow */}
+      <div className="pointer-events-none absolute inset-0 transition-shadow duration-300"
+           style={{boxShadow: hover?`inset 0 0 0 1px ${color}44, 0 0 14px ${color}33`:`inset 0 0 0 1px ${color}22, 0 0 8px ${color}1f`}}/>
     </div>
   );
 }
