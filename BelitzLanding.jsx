@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, ArrowUpRight, PencilLine } from "lucide-react";
+import { Volume2, VolumeX, ArrowUpRight } from "lucide-react";
 
 // ===== Minimal, self‑contained React file (no TS, no motion) =====
 const DEFAULT_CONTENT = {
@@ -10,8 +10,8 @@ const DEFAULT_CONTENT = {
   colorPrimary: "#FFD400",
   bg: "#0A0A0A",
   audioDataURL: "",
-  audioDryURL: "",
-  audioWetURL: "",
+  audioDryURL: "https://static.wixstatic.com/mp3/87dcf7_5f1422684fd742fdb18491a909df11c7.mp3",
+  audioWetURL: "https://static.wixstatic.com/mp3/87dcf7_92cafbf4cd64462bb721fb79c01c31ac.mp3",
   projects: [
     { title: "Mall of Berlin", tag: "Editor", href: "", img: "" },
     { title: "SugarGang", tag: "Cut und Edit", href: "", img: "" },
@@ -26,7 +26,12 @@ function useContent() {
   const [content, setContent] = useState(() => {
     try {
       const raw = localStorage.getItem("belitzLandingContent");
-      return raw ? { ...DEFAULT_CONTENT, ...JSON.parse(raw) } : DEFAULT_CONTENT;
+      const stored = raw ? JSON.parse(raw) : {};
+      // Merge with defaults, aber leere Strings überschreiben die festen Audio‑URLs nicht
+      const merged = { ...DEFAULT_CONTENT, ...stored };
+      if (!stored || !stored.audioDryURL) merged.audioDryURL = DEFAULT_CONTENT.audioDryURL;
+      if (!stored || !stored.audioWetURL) merged.audioWetURL = DEFAULT_CONTENT.audioWetURL;
+      return merged;
     } catch {
       return DEFAULT_CONTENT;
     }
@@ -68,7 +73,7 @@ export function computeCrossfade(r){
 export default function BelitzLanding() {
   const { content, setContent } = useContent();
   const [audioOn, setAudioOn] = useState(false);
-  const [editorOpen, setEditorOpen] = useState(false);
+  
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [audioLevel, setAudioLevel] = useState(0);
   const [analyserNode, setAnalyserNode] = useState(null);
@@ -173,9 +178,6 @@ export default function BelitzLanding() {
       <div className="bm-texture" />
       {/* HUD */}
       <div className="fixed right-4 top-4 z-50 flex items-center gap-2">
-        <button onClick={() => setEditorOpen((s) => !s)} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs hover:bg-white/5" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
-          <PencilLine size={16}/> Edit
-        </button>
         <button onClick={toggleAudio} className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs hover:shadow" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
           {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>} <span className="uppercase tracking-wider">Storm</span>
         </button>
@@ -256,7 +258,7 @@ export default function BelitzLanding() {
       </footer>
 
       {/* EDITOR */}
-      {editorOpen && <EditorPanel content={content} setContent={setContent} />}
+      
 
       {/* styles */}
       <style>{`
@@ -289,6 +291,7 @@ function LogoLite({ color, text, level, mouse }){
   useEffect(()=>{ const onScroll=()=>{ const y=window.scrollY||0; setZoom(1+Math.min(y/1400,0.06)); }; onScroll(); window.addEventListener('scroll',onScroll); return ()=>window.removeEventListener('scroll',onScroll); },[]);
   useEffect(()=>{ if(!box.current || !mouse) return; const r=box.current.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2; const dx=(cx-mouse.x)/18, dy=(cy-mouse.y)/18; const blur=28+Math.min(80, Math.hypot(dx,dy)*2.2); setShadow({dx,dy,blur}); },[mouse]);
   const left = (text||'BELITZMEDIA').slice(0,6), right=(text||'BELITZMEDIA').slice(6);
+  // Audio-reactive glow
   // Audio-reactive glow (smoothed & thresholded)
   const reactRef = useRef(0);
   const [react, setReact] = useState(0);
