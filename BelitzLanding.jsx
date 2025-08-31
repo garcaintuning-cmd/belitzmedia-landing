@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, ArrowUpRight } from "lucide-react";
 
-// ===== Minimal, self‑contained React file (no TS, no motion) =====
+// ===== Minimal, self‑contained React file (no TS, no motiodn) =====
 const DEFAULT_CONTENT = {
   heroTitle: "Cutting‑Edge Creative &\nHigh‑Impact Editing",
   heroCopy:
