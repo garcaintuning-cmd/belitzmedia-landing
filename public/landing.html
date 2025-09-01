@@ -36,8 +36,16 @@
     .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--primary);color:var(--primary);background:transparent;padding:8px 12px;border-radius:999px;font-size:12px;cursor:pointer}
     .badge{display:inline-flex;align-items:center;border:1px solid var(--primary);padding:2px 8px;border-radius:999px;font:700 10px/1.6 system-ui;letter-spacing:.08em}
     .badge.on{background:var(--primary);color:#111}
-    .range{height:6px;width:120px}.range input{width:100%}
-    @media (max-width:768px){.range{width:84px}}
+    .range{height:6px;width:120px;display:inline-flex;align-items:center}.range input{width:100%}
+    @media (max-width:1024px){
+      .links{width:100%;gap:12px}
+      .range{order:3;width:min(280px,70vw)}
+      #btnStorm{order:1}
+      #badge{order:2}
+    }
+    @media (max-width:768px){
+      .range{width:min(260px,75vw)}
+    }
     .hero{position:relative;z-index:2;padding:0 0 48px 0}
     .panel{overflow:hidden;border:1px solid rgba(var(--p),.3);border-radius:24px;background:rgba(0,0,0,.3);box-shadow:inset 0 0 0 1px rgba(var(--p),.15),0 0 28px rgba(var(--p),.2)}
     .panel .video-wrap{position:relative;height:400px;transform:scale(1);transform-origin:50% 50%;will-change:transform;transition:transform 1.25s cubic-bezier(.22,1,.28,1);backface-visibility:hidden}
@@ -192,6 +200,7 @@
     const videoA = document.getElementById('videoBase');
     const videoB = document.getElementById('videoHover');
     let zoomTimer = null;
+    let overlayTimer = null;
 
     Promise.allSettled([videoA.play(), videoB.play()]).then(()=>{
       setInterval(()=>{
