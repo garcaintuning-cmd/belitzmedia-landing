@@ -11,6 +11,7 @@
       --muted:rgba(255,255,255,.7);
       --border:rgba(255,255,255,.12);
       --primary:#FFD400;
+      --p:255,212,0; /* rgb of --primary */
     }
     *,*:before,*:after{box-sizing:border-box}
     html,body{height:100%}
@@ -36,7 +37,7 @@
     .nav-row{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
     .brand{display:flex; align-items:center; gap:10px}
     .brand-spin{height:36px; width:36px; display:grid; place-items:center; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,.4)}
-    .spin{height:24px; width:24px; border:2px solid color-mix(in oklab, var(--primary) 20%, transparent); border-top-color:var(--primary); border-radius:999px; animation:spin 6s linear infinite}
+    .spin{height:24px; width:24px; border:2px solid rgba(var(--p), .2); border-top-color:var(--primary); border-radius:999px; animation:spin 6s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     .links{display:flex; align-items:center; gap:18px; flex-wrap:wrap}
     .nav a.link{opacity:.8} .nav a.link:hover{opacity:1}
@@ -48,13 +49,13 @@
     @media (max-width:768px){ .range{width:84px} }
     /* hero */
     .hero{position:relative; z-index:2; padding:0 0 48px 0}
-    .panel{overflow:hidden; border:1px solid color-mix(in oklab, var(--primary) 30%, transparent); border-radius:24px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--primary) 15%, transparent), 0 0 28px color-mix(in oklab, var(--primary) 20%, transparent)}
+    .panel{overflow:hidden; border:1px solid rgba(var(--p), .3); border-radius:24px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 1px rgba(var(--p), .15), 0 0 28px rgba(var(--p), .20)}
     .panel .video-wrap{position:relative; height:400px}
     .panel video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scale(1.02); transition:transform .7s cubic-bezier(.22,1,.36,1)}
     .panel.zoom video{transform:scale(1.35)}
     .panel .vignette{position:absolute; inset:0; pointer-events:none; background:radial-gradient(110% 80% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.35) 100%)}
     .panel .glow{position:absolute; inset:0; pointer-events:none; transition:box-shadow .5s}
-    .panel:hover .glow{box-shadow:inset 0 0 0 2px color-mix(in oklab, var(--primary) 40%, transparent), 0 0 28px color-mix(in oklab, var(--primary) 35%, transparent)}
+    .panel:hover .glow{box-shadow:inset 0 0 0 2px rgba(var(--p), .4), 0 0 28px rgba(var(--p), .35)}
     .h1{font-weight:900; letter-spacing:-.02em; margin:24px 0 0; font-size:42px; line-height:1.1}
     @media (min-width:900px){ .h1{font-size:64px} }
     .muted{color:var(--muted)}
@@ -66,8 +67,8 @@
     .grid{display:grid; gap:16px}
     @media (min-width:720px){ .grid{grid-template-columns:repeat(2,1fr)} }
     @media (min-width:1024px){ .grid{grid-template-columns:repeat(3,1fr)} }
-    .card{position:relative; overflow:hidden; border:1px solid color-mix(in oklab, var(--primary) 30%, transparent); border-radius:18px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--primary) 15%, transparent), 0 0 18px color-mix(in oklab, var(--primary) 20%, transparent)}
-    .card-media{aspect-ratio:4/3; background:linear-gradient(135deg, color-mix(in oklab, var(--primary) 15%, transparent), rgba(255,255,255,.06) 50%, #000 100%)}
+    .card{position:relative; overflow:hidden; border:1px solid rgba(var(--p), .3); border-radius:18px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 1px rgba(var(--p), .15), 0 0 18px rgba(var(--p), .20)}
+    .card-media{aspect-ratio:4/3; background:linear-gradient(135deg, rgba(var(--p), .15), rgba(255,255,255,.06) 50%, #000 100%)}
     .card h3{margin:8px 0 0; font-size:18px}
     .card .tag{font-size:13px; color:var(--primary)}
     .card .body{position:absolute; inset:0; display:flex; flex-direction:column; justify-content:end; padding:12px}
@@ -78,7 +79,7 @@
     .modal.open{display:block}
     .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(3px); opacity:0; transition:opacity .3s}
     .modal.open .backdrop{opacity:1}
-    .sheet{position:absolute; left:50%; top:8vh; transform:translate(-50%, 0); width:92vw; max-width:1100px; border:1px solid color-mix(in oklab, var(--primary) 40%, transparent); background:rgba(0,0,0,.8); border-radius:22px; overflow:hidden; box-shadow:0 20px 80px rgba(0,0,0,.6)}
+    .sheet{position:absolute; left:50%; top:8vh; transform:translate(-50%, 0); width:92vw; max-width:1100px; border:1px solid rgba(var(--p), .4); background:rgba(0,0,0,.8); border-radius:22px; overflow:hidden; box-shadow:0 20px 80px rgba(0,0,0,.6)}
     .sheet-inner{display:grid; gap:16px; padding:16px}
     @media(min-width:900px){ .sheet-inner{grid-template-columns:3fr 2fr} }
     .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px}
@@ -324,5 +325,5 @@
     btnClose.addEventListener('click', closeModal);
 
   </script>
-</body> 
+</body>
 </html>
