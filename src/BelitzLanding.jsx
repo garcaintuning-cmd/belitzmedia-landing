@@ -251,16 +251,15 @@ export default function BelitzLanding() {
           </button>
           <span className="inline-flex h-2.5 w-2.5 rounded-full border" style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent' }} />
           <input type="range" min="0" max="100" value={Math.round(volume*100)} onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)} className="h-1.5 w-20 cursor-pointer" style={{ accentColor: content.colorPrimary }} />
-        </div>
-          </div>
-        </div>
       </nav>
 
       {/* HERO */}
       <section className="relative z-20 mx-auto max-w-6xl px-6 pb-12">
         <div className="relative mb-8 overflow-hidden rounded-3xl border bg-black/30" style={{borderColor: content.colorPrimary + '55', boxShadow: '0 0 0 1px ' + content.colorPrimary + '22 inset, 0 0 28px ' + content.colorPrimary + '22'}}>
-          <div className="absolute left-4 top-4 z-10 rounded-full bg-black/60 px-3 py-1 text-xs" style={{color:content.colorPrimary,border:`1px solid ${content.colorPrimary}55`}}>Teaser Video</div>
-          <HeroVideo src="https://video.wixstatic.com/video/87dcf7_e2b871f973424f63b87abafd34a2d65b/1080p/mp4/file.mp4" color={content.colorPrimary} />
+                    <LogoLite color={content.colorPrimary} text="BELITZMEDIA" level={audioLevel} mouse={mouse}/>
+          <div className="absolute bottom-0 left-0 right-0 z-10">
+            <AudioWave analyser={analyserNode} color={content.colorPrimary} />
+          </div>
         </div>
         <h1 className="whitespace-pre-line text-5xl font-black leading-tight tracking-tight md:text-7xl">{content.heroTitle}</h1>
         <p className="mt-6 max-w-2xl text-white/70">{content.heroCopy}</p>
@@ -384,49 +383,88 @@ function LogoLite({ color, text, level, mouse }){
   );
 }
 
-// ===== Hero Video (autoplay muted, subtle hotspot hover) =====
-function HeroVideo({ src, color }){
-  const ref = useRef(null);
-  const [hover, setHover] = useState(false);
-  const [pos, setPos] = useState({x:50,y:50});
-  const move = (e)=>{
-    const el = ref.current; if(!el) return;
-    const r = el.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width) * 100;
-    const y = ((e.clientY - r.top) / r.height) * 100;
-    setPos({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
-  };
+// ===== Audio Wave (canvas spectrum, glassy, yellow) =====
+function AudioWave({ analyser, color }){
+  const canvasRef = useRef(null);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d');
+    let running = true;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = c.getBoundingClientRect();
+      c.width = Math.max(2, Math.floor(rect.width * dpr));
+      c.height = Math.max(2, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const N = 48; // bars
+    const tmp = new Uint8Array(256);
+
+    const draw = () => {
+      const W = c.width / (window.devicePixelRatio || 1);
+      const H = c.height / (window.devicePixelRatio || 1);
+      ctx.clearRect(0,0,W,H);
+
+      // glass background glow
+      const grd = ctx.createLinearGradient(0,0,0,H);
+      grd.addColorStop(0, 'rgba(255,255,255,0.04)');
+      grd.addColorStop(1, 'rgba(255,255,255,0.02)');
+      ctx.fillStyle = grd; ctx.fillRect(0,0,W,H);
+
+      // get data
+      let arr = new Array(N).fill(0);
+      if (analyser) {
+        analyser.getByteFrequencyData(tmp);
+        const step = Math.max(1, Math.floor(tmp.length / N));
+        for (let i=0;i<N;i++) {
+          let sum=0; for (let j=0;j<step;j++) sum += tmp[i*step + j] || 0;
+          arr[i] = sum / (step*255);
+        }
+      } else {
+        const t = performance.now()/600;
+        for (let i=0;i<N;i++) arr[i] = 0.25 + 0.15*Math.sin(t + i*0.55);
+      }
+
+      const baseY = Math.floor(H/2);
+      const pad = 10;
+      const bw = (W - pad*2) / N;
+
+      // baseline
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(pad, baseY, W - pad*2, 1);
+
+      // bars with glow
+      for (let i=0;i<N;i++) {
+        const v = Math.min(1, Math.max(0, arr[i]));
+        const h = v * (H*0.44);
+        const x = pad + i*bw + bw*0.18;
+        const w = bw*0.64;
+        ctx.save();
+        ctx.shadowColor = color; ctx.shadowBlur = 8;
+        ctx.fillStyle = color + '99';
+        ctx.fillRect(x, baseY - h, w, h*2);
+        ctx.restore();
+        // inner light
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(x, baseY - h, w, 2);
+      }
+
+      if (running) rafRef.current = requestAnimationFrame(draw);
+    };
+
+    const onResize = () => { resize(); };
+    resize(); draw();
+    window.addEventListener('resize', onResize);
+    return () => { running=false; cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', onResize); };
+  }, [analyser, color]);
+
   return (
-    <div ref={ref}
-         onMouseEnter={()=>setHover(true)}
-         onMouseLeave={()=>setHover(false)}
-         onMouseMove={move}
-         className="relative h-[400px] w-full overflow-hidden">
-      <video autoPlay muted playsInline loop preload="metadata"
-             className="absolute inset-0 h-full w-full object-cover"
-             style={{
-               transform: `scale(${hover?1.01:1})`,
-               filter: hover? 'contrast(1.06) saturate(1.06)' : 'none',
-               transition: 'transform 280ms ease, filter 280ms ease'
-             }}
-             onCanPlay={(e)=>{ try{ e.currentTarget.play(); }catch{} }}
-             src={src}/>
-
-      {/* Dynamischer Hotspot, folgt der Maus – kein stehender Sweep */}
-      <div className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-           style={{
-             opacity: hover? 1 : 0,
-             mixBlendMode: 'screen',
-             background: `radial-gradient(220px 160px at ${pos.x}% ${pos.y}%, rgba(255,255,255,.085), transparent 60%)`
-           }}
-      />
-
-      {/* leichte Rand-Vignette für Tiefe */}
-      <div className="pointer-events-none absolute inset-0" style={{background:'radial-gradient(110% 80% at 50% 45%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.25) 100%)'}}/>
-
-      {/* dezenter Rahmen/Glow */}
-      <div className="pointer-events-none absolute inset-0 transition-shadow duration-300"
-           style={{boxShadow: hover?`inset 0 0 0 1px ${color}44, 0 0 14px ${color}33`:`inset 0 0 0 1px ${color}22, 0 0 8px ${color}1f`}}/>
+    <div className="mx-4 mb-3 rounded-xl border bg-black/40 backdrop-blur" style={{ borderColor: color + '44', boxShadow: 'inset 0 0 0 1px ' + color + '22, 0 0 14px ' + color + '22' }}>
+      <canvas ref={canvasRef} style={{ width: '100%', height: 64, display: 'block' }} />
     </div>
   );
 }
