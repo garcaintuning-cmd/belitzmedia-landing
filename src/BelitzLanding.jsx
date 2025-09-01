@@ -221,42 +221,85 @@ export default function BelitzLanding() {
 
       {/* NAV */}
       <nav className="relative z-20 mx-auto flex max-w-6xl flex-wrap items-center justify-between px-4 py-4 md:flex-nowrap md:px-6 md:py-6">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-white/10 bg-black/40">
-            <div className="h-6 w-6 animate-spin-slow rounded-full border-2" style={{ borderColor: `${content.colorPrimary}33`, borderTopColor: content.colorPrimary }} />
-          </div>
-          <span className="text-lg font-semibold tracking-wide">BELITZMEDIA</span>
-        </div>
-        <div className="items-center gap-4 text-sm hidden md:flex">
-          <a className="opacity-80 transition hover:opacity-100" href="#work">Work</a>
-          <a className="opacity-80 transition hover:opacity-100" href="#contact">Contact</a>
-          <div className="flex items-center gap-2">
-            <button onClick={toggleAudio} className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs hover:shadow" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
-              {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>} <span className="uppercase tracking-wider">Storm</span>
-            </button>
-            <span aria-live="polite" className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider" style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent', color: audioOn ? '#111' : content.colorPrimary }}>
-              {audioOn ? 'ON' : 'OFF'}
-            </span>
-            <div className="ml-2 flex items-center gap-2">
-              <input type="range" min="0" max="100" value={Math.round(volume*100)} onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)} className="h-1.5 w-28 cursor-pointer" style={{ accentColor: content.colorPrimary }} />
-              <span className="text-[10px] tabular-nums opacity-80">{Math.round(volume*100)}%</span>
-            </div>
-          </div>
-        </div>
-        {/* Mobile controls */}
-        <div className="flex items-center gap-2 md:hidden">
-          <button aria-label={audioOn? 'Storm anhalten' : 'Storm starten'} onClick={toggleAudio} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
-            {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>}
-            <span className="uppercase tracking-wider hidden xs:inline">Storm</span>
-          </button>
-          <span className="inline-flex h-2.5 w-2.5 rounded-full border" style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent' }} />
-          <input type="range" min="0" max="100" value={Math.round(volume*100)} onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)} className="h-1.5 w-20 cursor-pointer" style={{ accentColor: content.colorPrimary }} />
-      </nav>
+  <div className="flex items-center gap-3">
+    <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-white/10 bg-black/40">
+      <div
+        className="h-6 w-6 animate-spin-slow rounded-full border-2"
+        style={{ borderColor: `${content.colorPrimary}33`, borderTopColor: content.colorPrimary }}
+      />
+    </div>
+    <span className="text-lg font-semibold tracking-wide">BELITZMEDIA</span>
+  </div>
+
+  {/* Desktop controls */}
+  <div className="items-center gap-4 text-sm hidden md:flex">
+    <a className="opacity-80 transition hover:opacity-100" href="#work">Work</a>
+    <a className="opacity-80 transition hover:opacity-100" href="#contact">Contact</a>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={toggleAudio}
+        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs hover:shadow"
+        style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}
+      >
+        {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>}<span className="uppercase tracking-wider">Storm</span>
+      </button>
+      <span
+        aria-live="polite"
+        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider"
+        style={{
+          borderColor: content.colorPrimary,
+          background: audioOn ? content.colorPrimary : 'transparent',
+          color: audioOn ? '#111' : content.colorPrimary
+        }}
+      >
+        {audioOn ? 'ON' : 'OFF'}
+      </span>
+      <div className="ml-2 flex items-center gap-2">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={Math.round(volume*100)}
+          onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)}
+          className="h-1.5 w-28 cursor-pointer"
+          style={{ accentColor: content.colorPrimary }}
+        />
+        <span className="text-[10px] tabular-nums opacity-80">{Math.round(volume*100)}%</span>
+      </div>
+    </div>
+  </div>
+
+  {/* Mobile controls */}
+  <div className="flex items-center gap-2 md:hidden">
+    <button
+      aria-label={audioOn? 'Storm anhalten' : 'Storm starten'}
+      onClick={toggleAudio}
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
+      style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}
+    >
+      {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>}
+      <span className="uppercase tracking-wider hidden xs:inline">Storm</span>
+    </button>
+    <span
+      className="inline-flex h-2.5 w-2.5 rounded-full border"
+      style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent' }}
+    />
+    <input
+      type="range"
+      min="0"
+      max="100"
+      value={Math.round(volume*100)}
+      onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)}
+      className="h-1.5 w-20 cursor-pointer"
+      style={{ accentColor: content.colorPrimary }}
+    />
+  </div>
+</nav>
 
       {/* HERO */}
       <section className="relative z-20 mx-auto max-w-6xl px-6 pb-12">
         <div className="relative mb-8 overflow-hidden rounded-3xl border bg-black/30" style={{borderColor: content.colorPrimary + '55', boxShadow: '0 0 0 1px ' + content.colorPrimary + '22 inset, 0 0 28px ' + content.colorPrimary + '22'}}>
-                    <LogoLite color={content.colorPrimary} text="BELITZMEDIA" level={audioLevel} mouse={mouse}/>
+                    <HeroVideo src="https://video.wixstatic.com/video/87dcf7_e2b871f973424f63b87abafd34a2d65b/1080p/mp4/file.mp4" color={content.colorPrimary} />
           <div className="absolute bottom-0 left-0 right-0 z-10">
             <AudioWave analyser={analyserNode} color={content.colorPrimary} />
           </div>
@@ -465,6 +508,29 @@ function AudioWave({ analyser, color }){
   return (
     <div className="mx-4 mb-3 rounded-xl border bg-black/40 backdrop-blur" style={{ borderColor: color + '44', boxShadow: 'inset 0 0 0 1px ' + color + '22, 0 0 14px ' + color + '22' }}>
       <canvas ref={canvasRef} style={{ width: '100%', height: 64, display: 'block' }} />
+    </div>
+  );
+}
+
+// ===== Hero Video (autoplay muted, strong zoom on hover/tap) =====
+function HeroVideo({ src, color }){
+  const [hover, setHover] = useState(false);
+  const tapTimer = useRef(0);
+  useEffect(()=>()=>{ if (tapTimer.current) clearTimeout(tapTimer.current); },[]);
+  const onTouch = () => {
+    setHover(true);
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(()=> setHover(false), 1200);
+  };
+  return (
+    <div className="relative h-[400px] w-full overflow-hidden" onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} onTouchStart={onTouch}>
+      <video autoPlay muted playsInline loop preload="metadata" className="absolute inset-0 h-full w-full object-cover will-change-transform"
+             style={{ transform:`scale(${hover?1.18:1.02})`, transition:'transform 600ms cubic-bezier(0.22,1,0.36,1)' }}
+             onCanPlay={(e)=>{ try{ e.currentTarget.play(); }catch{} }} src={src} />
+      {/* vignette for depth */}
+      <div className="pointer-events-none absolute inset-0" style={{background:'radial-gradient(110% 80% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.35) 100%)'}}/>
+      {/* border/glow reacts to hover */}
+      <div className="pointer-events-none absolute inset-0 transition-shadow duration-500" style={{boxShadow: hover?`inset 0 0 0 2px ${color}66, 0 0 28px ${color}44`:`inset 0 0 0 1px ${color}33, 0 0 18px ${color}22`}}/>
     </div>
   );
 }
