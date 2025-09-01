@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="de">
 <head>
@@ -69,7 +70,7 @@
     .card::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(75deg, transparent 0%, rgba(255,255,255,.03) 40%, rgba(255,255,255,.16) 50%, rgba(255,255,255,.03) 60%, transparent 100%);transform:translateX(-150%) skewX(-10deg);opacity:0}
     .card:hover::before{opacity:1;animation:lightsweep 1.2s cubic-bezier(.22,1,.36,1)}
     @keyframes lightsweep{from{transform:translateX(-160%) skewX(-10deg)}to{transform:translateX(220%) skewX(-10deg)}}
-    .card-media{aspect-ratio:4/3;background:linear-gradient(135deg, rgba(var(--p), .15), rgba(255,255,255,.06) 50%, #000 100%);background-size:cover;background-position:center;background-repeat:no-repeat}
+    .card-media{aspect-ratio:4/3;background:linear-gradient(135deg, rgba(var(--p), .15), rgba(255,255,255,.06) 50%, #000 100%);background-size:cover;background-position:center;background-repeat:no-repeat filter: grayscale(1) saturate(0) brightness(0.7); transition: filter .45s ease, transform .35s ease; }
     .card h3{margin:8px 0 0;font-size:18px}
     .card .tag{font-size:13px;color:var(--primary)}
     .card .body{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:end;padding:12px}
@@ -85,6 +86,26 @@
     .aspect-video{aspect-ratio:16/9}
     .aspect-4-3{aspect-ratio:4/3}
     .btn-close{border:1px solid var(--primary);color:var(--primary);background:transparent;padding:10px 14px;border-radius:12px;cursor:pointer}
+  
+    .card:hover .card-media,
+    .card:focus-within .card-media,
+    .card:active .card-media{ filter: none; }
+    
+    /* === Enforce grayscale on cards, color on hover === */
+    .grid .card .card-media {
+      filter: grayscale(1) saturate(0) brightness(0.65) !important;
+      transition: filter .45s ease, transform .35s ease;
+    }
+    .grid .card:hover .card-media,
+    .grid .card:focus-within .card-media,
+    .grid .card:active .card-media {
+      filter: none !important;
+    }
+    @media (hover: none) and (pointer: coarse) {
+      /* On touch, keep grayscale until tap/active */
+      .grid .card .card-media { transition-duration: .35s; }
+    }
+    
   </style>
 </head>
 <body>
@@ -126,7 +147,7 @@
         <h1 class="h1">Cutting‑Edge Creative &<br>High‑Impact Editing</h1>
         <p class="muted" style="max-width:680px">Belitzmedia baut dir die Show, die hängen bleibt: kompromissloses Editing, starke Markeninszenierung, schnelles Storytelling.</p>
         <div class="cta">
-          <a href="#work" class="primary">Showreel ansehen
+          <a href="#" id="btnReel" class="primary">Showreel ansehen
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111"><path d="M7 17L17 7M8 7h9v9"/></svg>
           </a>
           <a id="contact" href="mailto:hello@belitz.media" class="ghost">hello@belitz.media</a>
@@ -216,10 +237,31 @@
             <li>Tools: Premiere Pro, After Effects</li>
           </ul>
           <div style="display:flex;gap:10px;margin-top:16px"><button id="btnClose" class="btn-close">Schließen</button></div>
+        
+  <!-- Showreel Modal -->
+  
+
+</div>
+      </div>
+    </div>
+  </div>
+<div id="reelModal" class="modal" aria-hidden="true">
+    <div class="backdrop" id="reelBackdrop"></div>
+    <div class="sheet" id="reelSheet">
+      <div class="sheet-inner">
+        <div style="grid-column:1/-1">
+          <div class="aspect-video" style="overflow:hidden;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.4)">
+            <video id="reelVideo" controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover"
+              src="https://video.wixstatic.com/video/87dcf7_fe3c5a515fc3435a841121b239c7a407/1080p/mp4/file.mp4"></video>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btnReelClose" class="btn-close">Schließen</button>
         </div>
       </div>
     </div>
   </div>
+
 
   <audio id="dry" src="https://static.wixstatic.com/mp3/87dcf7_4e3a43f667cd4de1aaed63a9a3e2d5e5.mp3" preload="none" loop crossorigin="anonymous"></audio>
   <audio id="wet" src="https://static.wixstatic.com/mp3/87dcf7_9df99065b31c4d4897cb37a5c2394c3b.mp3" preload="none" loop crossorigin="anonymous"></audio>
@@ -370,6 +412,80 @@
     });
     backdrop.addEventListener('click', closeModal);
     btnClose.addEventListener('click', closeModal);
-  </script>
+  
+    // === Showreel Modal ===
+    const btnReel = document.getElementById('btnReel');
+    const reelModal = document.getElementById('reelModal');
+    const reelSheet = document.getElementById('reelSheet');
+    const reelBackdrop = document.getElementById('reelBackdrop');
+    const btnReelClose = document.getElementById('btnReelClose');
+    const reelVideo = document.getElementById('reelVideo');
+    let resumeAudio = false;
+
+    function openReel(){
+      // remember audio state and stop BGM
+      resumeAudio = (typeof audioOn !== 'undefined' && audioOn) || (!dry.paused || !wet.paused);
+      try { stopAudio(); } catch(e) { 
+        try { dry.pause(); wet.pause(); } catch(_) {}
+      }
+
+      // show modal and FLIP open from button
+      reelModal.classList.add('open');
+      document.documentElement.style.overflow='hidden';
+      reelSheet.style.transition='none';
+      reelSheet.style.transform='translate(-50%,0)';
+      reelSheet.style.willChange='transform';
+
+      requestAnimationFrame(()=>{
+        const r0 = btnReel.getBoundingClientRect();
+        const r1 = reelSheet.getBoundingClientRect();
+        const s = Math.max(.01, r0.width / Math.max(1, r1.width));
+        const cx0 = r0.left + r0.width/2, cy0 = r0.top + r0.height/2;
+        const cx1 = r1.left + r1.width/2, cy1 = r1.top + r1.height/2;
+        const dx = cx0 - cx1, dy = cy0 - cy1;
+
+        reelSheet.style.transform = `translate(-50%, 0) translate(${dx}px, ${dy}px) scale(${s})`;
+        reelSheet.getBoundingClientRect();
+        reelSheet.style.transition = 'transform 780ms cubic-bezier(.22,1,.28,1)';
+        reelSheet.style.transform = 'translate(-50%, 0) translate(0,0) scale(1)';
+      });
+
+      // start playback (should be allowed after user click)
+      try { reelVideo.currentTime = 0; } catch{}
+      reelVideo.muted = false;
+      reelVideo.play().catch(()=>{});
+    }
+
+    function closeReel(){
+      // animate back to button
+      const r0 = btnReel.getBoundingClientRect();
+      const r1 = reelSheet.getBoundingClientRect();
+      const s = Math.max(.01, r0.width / Math.max(1, r1.width));
+      const cx0 = r0.left + r0.width/2, cy0 = r0.top + r0.height/2;
+      const cx1 = r1.left + r1.width/2, cy1 = r1.top + r1.height/2;
+      const dx = cx0 - cx1, dy = cy0 - cy1;
+      reelSheet.style.transition = 'transform 780ms cubic-bezier(.22,1,.28,1)';
+      reelSheet.style.transform = `translate(-50%, 0) translate(${dx}px, ${dy}px) scale(${s})`;
+      reelSheet.addEventListener('transitionend', ()=>{
+        reelModal.classList.remove('open');
+        reelSheet.style.transform='translate(-50%,0)'; reelSheet.style.transition=''; reelSheet.style.willChange='';
+        document.documentElement.style.overflow='';
+      }, {once:true});
+
+      // stop video
+      try { reelVideo.pause(); } catch{}
+
+      // resume BGM if it was on
+      if (resumeAudio){
+        try { startAudio(); } catch(e) {
+          try { dry.play(); wet.play(); } catch(_){}
+        }
+      }
+    }
+
+    btnReel?.addEventListener('click', (e)=>{ e.preventDefault(); openReel(); });
+    reelBackdrop?.addEventListener('click', closeReel);
+    btnReelClose?.addEventListener('click', closeReel);
+</script>
 </body>
 </html>
