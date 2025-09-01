@@ -1,0 +1,236 @@
+
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Impressum – BELITZMEDIA</title>
+  <meta name="description" content="Impressum & Datenschutzhinweise von Belitzmedia.">
+  <style>
+    :root{
+      --bg:#0A0A0A;
+      --text:#ffffff;
+      --muted:rgba(255,255,255,.75);
+      --border:rgba(255,255,255,.12);
+      --primary:#FFD400;
+      --p:255,212,0;
+    }
+    *,*:before,*:after{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    a{color:inherit;text-decoration:none}
+    .container{max-width:1120px;margin:0 auto;padding:0 24px}
+    .nav{position:relative;z-index:2;padding:16px 0}
+    .nav-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand-mark{height:36px;width:36px;border-radius:12px;border:1px solid var(--border);display:grid;place-items:center;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(var(--p),.12)}
+    .dot{height:10px;width:10px;border-radius:999px;background:var(--primary);box-shadow:0 0 16px rgba(var(--p),.45)}
+    .link{opacity:.85}.link:hover{opacity:1}
+    .hero{position:relative;z-index:1;padding:8px 0 40px}
+    .panel{overflow:hidden;border:1px solid rgba(var(--p),.30);border-radius:24px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(var(--p),.15),0 0 28px rgba(var(--p),.20)}
+    .logo-wrap{position:relative;aspect-ratio:16/7;display:block}
+    .logo-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.92) contrast(1.02) brightness(.85)}
+    .logo-wrap:after{content:"";position:absolute;inset:0;background:radial-gradient(160% 100% at 50% 0%, rgba(0,0,0,.25), transparent 45%), linear-gradient(180deg, rgba(0,0,0,.2), transparent 40%), linear-gradient(135deg, rgba(var(--p),.05), rgba(255,255,255,.04) 55%, rgba(0,0,0,.4));pointer-events:none}
+    .sheen{position:absolute;inset:-20% -40%;background:linear-gradient(75deg, transparent 45%, rgba(255,255,255,.18) 50%, transparent 55%);transform:translateX(-80%) skewX(-10deg);animation:sheen 6s ease-in-out infinite;mix-blend-mode:screen;pointer-events:none}
+    @keyframes sheen{50%{transform:translateX(80%) skewX(-10deg)}}
+    .hero-text{padding:18px 20px 22px;border-top:1px solid rgba(var(--p),.25);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .hero-text h1{margin:0;font-size:24px;letter-spacing:.02em}
+    .hero-text .meta{color:var(--muted);font-size:14px}
+    .grid{display:grid;gap:18px}
+    @media (min-width:980px){.grid{grid-template-columns:1.2fr .8fr}}
+    .card{overflow:hidden;border:1px solid rgba(var(--p),.28);border-radius:18px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(var(--p),.12),0 0 18px rgba(var(--p),.18)}
+    .card .head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+    .card .head h2{margin:0;font-size:18px;letter-spacing:.01em}
+    .card .body{padding:14px 16px}
+    .muted{color:var(--muted)}
+    .list{margin:0;padding:0;list-style:none}
+    .list li{padding:4px 0}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:14px}
+    .kbd{padding:2px 8px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,.04)}
+    .note{border-left:3px solid var(--primary);padding:10px 12px;background:rgba(255,212,0,.05);border-radius:6px}
+    .footer{border-top:1px solid var(--border);color:var(--muted);padding:22px 0;font-size:14px;margin-top:36px}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--primary);color:var(--primary);background:transparent;padding:8px 12px;border-radius:999px;font-size:12px;cursor:pointer}
+    .toc{display:flex;gap:10px;flex-wrap:wrap;padding:12px 0 0}
+    .toc a{border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px;color:var(--muted)}
+    .toc a:hover{border-color:var(--primary);color:var(--text)}
+    code{white-space:nowrap}
+  
+/* --- Header image: grayscale by default, color on hover --- */
+.logo-wrap img{
+  filter: grayscale(1) saturate(0) brightness(.85);
+  transition: filter .45s ease, transform .6s ease;
+  display:block;
+  transform:scale(1.01); /* cover rounding gaps */
+}
+.logo-wrap:hover img{ filter:none; }
+@media (hover:none) and (pointer:coarse){
+  /* On touch, show color on first tap (focus/active) */
+  .logo-wrap:active img, .logo-wrap:focus img{ filter:none; }
+}
+/* Ensure panel has no internal gaps */
+.hero.panel{ padding:0; }
+
+  
+    /* === Header: Ken Burns zoom + parallax === */
+    .logo-wrap{ --tx:0px; --ty:0px; overflow:hidden }
+    .logo-wrap img{
+      filter: grayscale(1) saturate(0) brightness(.85);
+      transform-origin: 50% 50%;
+      transform: translate(var(--tx), var(--ty)) scale(1.02);
+      animation: kenburns 16s ease-in-out infinite alternate;
+      transition: filter .45s ease;
+      display:block;
+    }
+    @keyframes kenburns{
+      from{ transform: translate(var(--tx), var(--ty)) scale(1.02); }
+      to  { transform: translate(var(--tx), var(--ty)) scale(1.06); }
+    }
+    .logo-wrap:hover img{ filter:none; }
+    @media (hover:none) and (pointer:coarse){
+      .logo-wrap:active img, .logo-wrap:focus img{ filter:none; }
+    }
+    .logo-wrap .parallax{
+      position:absolute; inset:-15%;
+      background:
+        radial-gradient(600px 600px at 20% 30%, rgba(255,255,255,.06), transparent 60%),
+        radial-gradient(800px 500px at 80% 70%, rgba(0,0,0,.18), transparent 60%);
+      mix-blend-mode:overlay; opacity:.12; pointer-events:none;
+      transform: translate3d(0,0,0); transition: transform .25s ease-out;
+    }
+    /* Full-width Impressum card (no empty second column) */
+    #impressum.grid{ grid-template-columns: 1fr !important; }
+    @media (min-width:980px){ #impressum.grid{ grid-template-columns: 1fr !important; } }
+
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-row">
+      <div class="brand">
+        <div class="brand-mark"><div class="dot"></div></div>
+        <div style="font-weight:700;letter-spacing:.02em">BELITZMEDIA</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <a class="link" href="/" title="Zur Startseite">Startseite</a>
+        <a class="btn" href="mailto:hello@belitz.media" title="Kontakt">Kontakt</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero panel" aria-label="Kopfbereich Impressum">
+      <div class="logo-wrap" style="overflow:hidden">
+        <img src="https://static.wixstatic.com/media/87dcf7_c5c35b7e58214cfb95c98361d2891187~mv2.jpg" alt="Belitzmedia – Logo/Visual">
+        <div class="parallax"></div>
+        <div class="sheen"></div>
+      </div>
+      <div class="hero-text">
+        <h1>Impressum & Datenschutz</h1>
+        <div class="meta">Stand: <span id="asof"></span></div>
+      </div>
+    </section>
+
+    <nav class="toc">
+      <a href="#impressum">Impressum</a>
+      <a href="#datenschutz">Datenschutzerklärung</a>
+      <a href="#widerruf">Widerruf</a>
+    </nav>
+
+    <section id="impressum" class="grid" style="margin-top:18px">
+      <article class="card">
+        <div class="head"><h2>Impressum</h2></div>
+        <div class="body">
+          <ul class="list">
+            <li><strong>Unternehmen:</strong> Belitzmedia</li>
+            <li><strong>Vertretung:</strong> Timo Schulze</li>
+            <li><strong>Adresse:</strong> Tiergartenstraße 6, 06333 Hettstedt</li>
+            <li><strong>E-Mail:</strong> <a href="mailto:service@belitzmedia.com">service@belitzmedia.com</a></li>
+          </ul>
+          
+        </div>
+      </article>
+      
+    </section>
+
+    <section id="datenschutz" class="card" style="margin-top:18px">
+      <div class="head"><h2>Datenschutzerklärung</h2></div>
+      <div class="body">
+        <h3 style="margin:8px 0 6px">Verantwortlicher</h3>
+        <p>Timo Schulze<br>Tiergartenstraße 6<br>06333 Hettstedt<br>E‑Mail: <a href="mailto:service@belitzmedia.com">service@belitzmedia.com</a><br>Telefon: 01520&nbsp;9772838</p>
+
+        <h3 style="margin:16px 0 6px">Allgemeine Hinweise</h3>
+        <p>Der Schutz Ihrer persönlichen Daten ist uns ein wichtiges Anliegen. Wir behandeln Ihre personenbezogenen Daten vertraulich und entsprechend den gesetzlichen Datenschutzvorschriften sowie dieser Datenschutzerklärung.</p>
+
+        <h3 style="margin:16px 0 6px">Erfassung von Daten</h3>
+        <p>Diese Website dient als erweiterte Visitenkarte für unser Unternehmen. Wir, Belitzmedia, speichern selbst keine personenbezogenen Daten. Es werden keine Cookies von uns eingesetzt, und wir führen keine aktive Datenerfassung durch.</p>
+
+        <h3 style="margin:16px 0 6px">Technische Daten durch Hosting‑Anbieter</h3>
+        <p>Für den Betrieb erforderliche technische Daten (z. B. IP‑Adresse, Server‑Logfiles) können durch den Hosting‑Anbieter automatisch verarbeitet werden, um Sicherheit und Funktionsfähigkeit der Website zu gewährleisten. Weitere Informationen finden Sie in den Datenschutzhinweisen des jeweiligen Anbieters.</p>
+
+        <h3 style="margin:16px 0 6px">Hosting</h3>
+        <p>Unsere Website kann über Drittdienstleister gehostet werden (z. B. Webflow). Deren Server verarbeiten die für den Betrieb der Website notwendigen Daten. Details entnehmen Sie bitte der <a href="https://webflow.com/legal/privacy" target="_blank" rel="noopener">Datenschutzerklärung von Webflow</a>.</p>
+
+        <h3 style="margin:16px 0 6px">Datenübermittlung in Drittländer</h3>
+        <p>Bei Hosting in den USA erfolgt die Datenübermittlung auf Grundlage geeigneter Garantien (z. B. Standardvertragsklauseln). Weitere Informationen finden Sie in der Datenschutzerklärung des Hosting‑Anbieters.</p>
+
+        <h3 style="margin:16px 0 6px">Externe Links</h3>
+        <p>Diese Website kann Links zu externen Websites enthalten. Für die Inhalte und Datenschutzbestimmungen der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.</p>
+
+        <h3 style="margin:16px 0 6px">SSL‑/TLS‑Verschlüsselung</h3>
+        <p>Diese Seite nutzt aus Sicherheitsgründen und zum Schutz der Übertragung vertraulicher Inhalte eine SSL‑/TLS‑Verschlüsselung. Eine verschlüsselte Verbindung erkennen Sie u. a. an dem Schloss‑Symbol in der Browserzeile.</p>
+
+        <h3 style="margin:16px 0 6px">Ihre Rechte</h3>
+        <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Widerspruch gegen die Verarbeitung sowie Datenübertragbarkeit. Eine erteilte Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen. Ihnen steht zudem ein Beschwerderecht bei der zuständigen Aufsichtsbehörde zu.</p>
+
+        <h3 style="margin:16px 0 6px">Änderungen dieser Datenschutzerklärung</h3>
+        <p>Wir behalten uns vor, diese Datenschutzerklärung gelegentlich anzupassen, um aktuellen rechtlichen Anforderungen zu entsprechen oder Änderungen unserer Leistungen umzusetzen. Die jeweils aktuelle Fassung ist auf dieser Seite abrufbar.</p>
+
+        <h3 style="margin:16px 0 6px">Verwendung von Bildmaterial</h3>
+        <p>Auf dieser Website kann Bildmaterial von Drittanbietern (z. B. motionarray.com) verwendet werden. Die entsprechenden Nutzungsrechte liegen vor und ergeben sich aus den jeweiligen Lizenzbedingungen.</p>
+
+        
+      </div>
+    </section>
+
+    <section id="widerruf" class="card" style="margin-top:18px">
+      <div class="head"><h2>Widerrufsbelehrung</h2></div>
+      <div class="body">
+        <p>Unsere Dienstleistungen sind regelmäßig individuell und auf die Bedürfnisse unserer Kunden zugeschnitten. Das Widerrufsrecht erlischt in der Regel mit Beginn der Ausführung der Dienstleistung. Mit Auftragserteilung stimmen Sie ausdrücklich zu, dass wir mit der Ausführung sofort beginnen; damit erlischt Ihr Widerrufsrecht.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div>© <span id="year"></span> Belitzmedia</div>
+        <div style="display:flex;gap:16px"><a href="/">Startseite</a><a href="mailto:hello@belitz.media">Kontakt</a></div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const y = document.getElementById('year'); if(y) y.textContent = new Date().getFullYear();
+    const asof = document.getElementById('asof'); if(asof){ const d=new Date(); asof.textContent = d.toLocaleDateString('de-DE',{year:'numeric',month:'2-digit',day:'2-digit'}); }
+  
+  // Header parallax (mouse + subtle scroll)
+  (function(){
+    const lw = document.querySelector('.logo-wrap');
+    if(!lw) return;
+    const par = lw.querySelector('.parallax');
+    const onMove = (e)=>{
+      const r = lw.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - .5;
+      const y = (e.clientY - r.top) / r.height - .5;
+      lw.style.setProperty('--tx', (x*8).toFixed(2)+'px');
+      lw.style.setProperty('--ty', (y*6).toFixed(2)+'px');
+      if (par) par.style.transform = `translate(${(x*12).toFixed(2)}px, ${(y*10).toFixed(2)}px)`;
+    };
+    lw.addEventListener('mousemove', onMove);
+    window.addEventListener('scroll', ()=>{
+      const sy = Math.min(20, (window.scrollY||document.documentElement.scrollTop)*0.05);
+      if (par) par.style.transform = `translate(0, ${sy.toFixed(2)}px)`;
+    }, {passive:true});
+  })();
+
+  </script>
+</body>
+</html>
