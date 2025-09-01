@@ -300,9 +300,7 @@ export default function BelitzLanding() {
       <section className="relative z-20 mx-auto max-w-6xl px-6 pb-12">
         <div className="relative mb-8 overflow-hidden rounded-3xl border bg-black/30" style={{borderColor: content.colorPrimary + '55', boxShadow: '0 0 0 1px ' + content.colorPrimary + '22 inset, 0 0 28px ' + content.colorPrimary + '22'}}>
                     <HeroVideo src="https://video.wixstatic.com/video/87dcf7_e2b871f973424f63b87abafd34a2d65b/1080p/mp4/file.mp4" color={content.colorPrimary} />
-          <div className="absolute bottom-0 left-0 right-0 z-10">
-            <AudioWave analyser={analyserNode} color={content.colorPrimary} />
-          </div>
+          
         </div>
         <h1 className="whitespace-pre-line text-5xl font-black leading-tight tracking-tight md:text-7xl">{content.heroTitle}</h1>
         <p className="mt-6 max-w-2xl text-white/70">{content.heroCopy}</p>
@@ -426,92 +424,6 @@ function LogoLite({ color, text, level, mouse }){
   );
 }
 
-// ===== Audio Wave (canvas spectrum, glassy, yellow) =====
-function AudioWave({ analyser, color }){
-  const canvasRef = useRef(null);
-  const rafRef = useRef(0);
-
-  useEffect(() => {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext('2d');
-    let running = true;
-
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = c.getBoundingClientRect();
-      c.width = Math.max(2, Math.floor(rect.width * dpr));
-      c.height = Math.max(2, Math.floor(rect.height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-
-    const N = 48; // bars
-    const tmp = new Uint8Array(256);
-
-    const draw = () => {
-      const W = c.width / (window.devicePixelRatio || 1);
-      const H = c.height / (window.devicePixelRatio || 1);
-      ctx.clearRect(0,0,W,H);
-
-      // glass background glow
-      const grd = ctx.createLinearGradient(0,0,0,H);
-      grd.addColorStop(0, 'rgba(255,255,255,0.04)');
-      grd.addColorStop(1, 'rgba(255,255,255,0.02)');
-      ctx.fillStyle = grd; ctx.fillRect(0,0,W,H);
-
-      // get data
-      let arr = new Array(N).fill(0);
-      if (analyser) {
-        analyser.getByteFrequencyData(tmp);
-        const step = Math.max(1, Math.floor(tmp.length / N));
-        for (let i=0;i<N;i++) {
-          let sum=0; for (let j=0;j<step;j++) sum += tmp[i*step + j] || 0;
-          arr[i] = sum / (step*255);
-        }
-      } else {
-        const t = performance.now()/600;
-        for (let i=0;i<N;i++) arr[i] = 0.25 + 0.15*Math.sin(t + i*0.55);
-      }
-
-      const baseY = Math.floor(H/2);
-      const pad = 10;
-      const bw = (W - pad*2) / N;
-
-      // baseline
-      ctx.fillStyle = 'rgba(255,255,255,0.07)';
-      ctx.fillRect(pad, baseY, W - pad*2, 1);
-
-      // bars with glow
-      for (let i=0;i<N;i++) {
-        const v = Math.min(1, Math.max(0, arr[i]));
-        const h = v * (H*0.44);
-        const x = pad + i*bw + bw*0.18;
-        const w = bw*0.64;
-        ctx.save();
-        ctx.shadowColor = color; ctx.shadowBlur = 8;
-        ctx.fillStyle = color + '99';
-        ctx.fillRect(x, baseY - h, w, h*2);
-        ctx.restore();
-        // inner light
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.fillRect(x, baseY - h, w, 2);
-      }
-
-      if (running) rafRef.current = requestAnimationFrame(draw);
-    };
-
-    const onResize = () => { resize(); };
-    resize(); draw();
-    window.addEventListener('resize', onResize);
-    return () => { running=false; cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', onResize); };
-  }, [analyser, color]);
-
-  return (
-    <div className="mx-4 mb-3 rounded-xl border bg-black/40 backdrop-blur" style={{ borderColor: color + '44', boxShadow: 'inset 0 0 0 1px ' + color + '22, 0 0 14px ' + color + '22' }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: 64, display: 'block' }} />
-    </div>
-  );
-}
-
 // ===== Hero Video (autoplay muted, strong zoom on hover/tap) =====
 function HeroVideo({ src, color }){
   const [hover, setHover] = useState(false);
@@ -525,7 +437,7 @@ function HeroVideo({ src, color }){
   return (
     <div className="relative h-[400px] w-full overflow-hidden" onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} onTouchStart={onTouch}>
       <video autoPlay muted playsInline loop preload="metadata" className="absolute inset-0 h-full w-full object-cover will-change-transform"
-             style={{ transform:`scale(${hover?1.18:1.02})`, transition:'transform 600ms cubic-bezier(0.22,1,0.36,1)' }}
+             style={{ transform:`scale(${hover?1.35:1.02})`, transition:'transform 700ms cubic-bezier(0.22,1,0.36,1)' }}
              onCanPlay={(e)=>{ try{ e.currentTarget.play(); }catch{} }} src={src} />
       {/* vignette for depth */}
       <div className="pointer-events-none absolute inset-0" style={{background:'radial-gradient(110% 80% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.35) 100%)'}}/>
