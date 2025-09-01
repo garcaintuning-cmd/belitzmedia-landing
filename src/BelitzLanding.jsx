@@ -324,5 +324,5 @@
     btnClose.addEventListener('click', closeModal);
 
   </script>
-</body>
+</body> 
 </html>
