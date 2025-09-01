@@ -220,14 +220,14 @@ export default function BelitzLanding() {
       <div className="pointer-events-none fixed inset-0 z-10" style={{ background: `radial-gradient(520px circle at ${mouse.x}px ${mouse.y}px, rgba(255,212,0,0.18), transparent 60%)`, mixBlendMode: "screen" }} />
 
       {/* NAV */}
-      <nav className="relative z-20 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <nav className="relative z-20 mx-auto flex max-w-6xl flex-wrap items-center justify-between px-4 py-4 md:flex-nowrap md:px-6 md:py-6">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-white/10 bg-black/40">
             <div className="h-6 w-6 animate-spin-slow rounded-full border-2" style={{ borderColor: `${content.colorPrimary}33`, borderTopColor: content.colorPrimary }} />
           </div>
           <span className="text-lg font-semibold tracking-wide">BELITZMEDIA</span>
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="items-center gap-4 text-sm hidden md:flex">
           <a className="opacity-80 transition hover:opacity-100" href="#work">Work</a>
           <a className="opacity-80 transition hover:opacity-100" href="#contact">Contact</a>
           <div className="flex items-center gap-2">
@@ -241,6 +241,17 @@ export default function BelitzLanding() {
               <input type="range" min="0" max="100" value={Math.round(volume*100)} onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)} className="h-1.5 w-28 cursor-pointer" style={{ accentColor: content.colorPrimary }} />
               <span className="text-[10px] tabular-nums opacity-80">{Math.round(volume*100)}%</span>
             </div>
+          </div>
+        </div>
+        {/* Mobile controls */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button aria-label={audioOn? 'Storm anhalten' : 'Storm starten'} onClick={toggleAudio} className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]" style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}>
+            {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>}
+            <span className="uppercase tracking-wider hidden xs:inline">Storm</span>
+          </button>
+          <span className="inline-flex h-2.5 w-2.5 rounded-full border" style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent' }} />
+          <input type="range" min="0" max="100" value={Math.round(volume*100)} onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)} className="h-1.5 w-20 cursor-pointer" style={{ accentColor: content.colorPrimary }} />
+        </div>
           </div>
         </div>
       </nav>
