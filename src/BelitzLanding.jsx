@@ -1,604 +1,328 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, ArrowUpRight } from "lucide-react";
-
-// Toggle: Autoplay beim Seitenaufruf (startet bei erster User‑Interaktion automatisch)
-const AUTOPLAY = false;
-
-// ===== Minimal, self‑contained React file (no TS, no motion) =====
-const DEFAULT_CONTENT = {
-  heroTitle: "Cutting‑Edge Creative &\nHigh‑Impact Editing",
-  heroCopy:
-    "Belitzmedia baut dir die Show, die hängen bleibt: kompromissloses Editing, starke Markeninszenierung, schnelles Storytelling.",
-  contactEmail: "hello@belitz.media",
-  colorPrimary: "#FFD400",
-  bg: "#0A0A0A",
-  audioDataURL: "",
-  audioDryURL: "https://static.wixstatic.com/mp3/87dcf7_5f1422684fd742fdb18491a909df11c7.mp3",
-  audioWetURL: "https://static.wixstatic.com/mp3/87dcf7_92cafbf4cd64462bb721fb79c01c31ac.mp3",
-  projects: [
-    { title: "Mall of Berlin", tag: "Editor", href: "", img: "" },
-    { title: "SugarGang", tag: "Cut und Edit", href: "", img: "" },
-    { title: "SPD Gütersloh", tag: "Imagefilme & Reels", href: "", img: "" },
-    { title: "Nicflex", tag: "Youtube Video Cut und Edit", href: "", img: "" },
-    { title: "VegaHappy", tag: "Tutorials, Reels", href: "" },
-    { title: "SpyViral", tag: "Musikvideos, Reels", href: "" },
-  ],
-};
-
-function useContent() {
-  const [content, setContent] = useState(() => {
-    try {
-      const raw = localStorage.getItem("belitzLandingContent");
-      const stored = raw ? JSON.parse(raw) : {};
-      // Merge with defaults, aber leere Strings überschreiben die festen Audio‑URLs nicht
-      const merged = { ...DEFAULT_CONTENT, ...stored };
-      if (!stored || !stored.audioDryURL) merged.audioDryURL = DEFAULT_CONTENT.audioDryURL;
-      if (!stored || !stored.audioWetURL) merged.audioWetURL = DEFAULT_CONTENT.audioWetURL;
-      return merged;
-    } catch {
-      return DEFAULT_CONTENT;
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BELITZMEDIA – Landing</title>
+  <style>
+    :root{
+      --bg:#0A0A0A;
+      --text:#ffffff;
+      --muted:rgba(255,255,255,.7);
+      --border:rgba(255,255,255,.12);
+      --primary:#FFD400;
     }
-  });
-  useEffect(() => {
-    try { localStorage.setItem("belitzLandingContent", JSON.stringify(content)); } catch {}
-  }, [content]);
-  return { content, setContent };
-}
-
-// ===== util: noise buffer for fallback rain =====
-function createNoiseBuffer(ctx, seconds = 3.0) {
-  const len = Math.floor(ctx.sampleRate * seconds);
-  const b = ctx.createBuffer(1, len, ctx.sampleRate);
-  const d = b.getChannelData(0);
-  let last = 0;
-  for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = 0.98 * last + 0.02 * w; d[i] = (w + last) * 0.5; }
-  return b;
-}
-
-// ===== pure helper (for tests): compute scroll‑dependent audio params =====
-export function computeAudioParams(r){
-  r = Math.min(1, Math.max(0, r||0));
-  const cutoff = 12000 - r * 11000;     // 12k → ~1k
-  const drive  = 1.0 + r * 1.0;         // 1.0 → 2.0
-  const bass   = 3 + r * 4;             // +3dB → +7dB (lowshelf)
-  const lvl    = (0.98 - r * 0.12) * 0.6; // global 60% scale
-  return { cutoff, drive, bass, lvl };
-}
-
-// equal-power crossfade helper for tests + engine
-export function computeCrossfade(r){
-  r = Math.min(1, Math.max(0, r||0));
-  const dry = Math.cos((Math.PI/2)*r);
-  const wet = Math.sin((Math.PI/2)*r);
-  return { dry, wet };
-}
-
-export default function BelitzLanding() {
-  const { content, setContent } = useContent();
-  const [audioOn, setAudioOn] = useState(false);
-  const [volume, setVolume] = useState(0.6);
-  
-  const [mouse, setMouse] = useState({ x: 0, y: 0 });
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [analyserNode, setAnalyserNode] = useState(null);
-  const audioRef = useRef(null);
-  const scrollRef = useRef(null);
-
-  // spotlight bg follows cursor
-  useEffect(() => {
-    const m = (e) => setMouse({ x: e.clientX, y: e.clientY });
-    window.addEventListener("mousemove", m);
-    return () => window.removeEventListener("mousemove", m);
-  }, []);
-
-  // ===== Autoplay-Hook (fix: kein Vorab-Start ohne User-Geste, verhindert Doppelklick) =====
-  useEffect(() => {
-    if (!AUTOPLAY) return;
-
-    const tryStart = async () => {
-      if (!audioRef.current) startStorm();
-      try {
-        const a = audioRef.current;
-        if (a?.ctx?.state !== 'running') await a.ctx.resume();
-        if (a?.elDry) await a.elDry.play().catch(()=>{});
-        if (a?.elWet) await a.elWet.play().catch(()=>{});
-      } catch {}
-    };
-
-    // Nur auf explizite Gesten hören – kein setTimeout/scroll/visibility-change
-    window.addEventListener('pointerdown', tryStart, { once: true });
-    window.addEventListener('keydown', tryStart, { once: true });
-    window.addEventListener('touchstart', tryStart, { once: true, passive: true });
-
-    return () => {
-      window.removeEventListener('pointerdown', tryStart);
-      window.removeEventListener('keydown', tryStart);
-      window.removeEventListener('touchstart', tryStart);
-    };
-  }, []);
-
-  // ===== Volume apply effect (react to UI slider) =====
-  useEffect(() => {
-    const a = audioRef.current; if (!a) return; const t = a.ctx.currentTime;
-    try { a.master.gain.cancelScheduledValues && a.master.gain.cancelScheduledValues(t); } catch {}
-    a.master.gain.setTargetAtTime(Math.max(0.0001, volume), t, 0.08);
-  }, [volume]);
-
-  // ===== stronger storm audio with scroll‑reactive tone (no sidechain) =====
-  function startStorm() {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  const ctx = new AudioCtx();
-
-  // master
-  const master = ctx.createGain(); master.gain.value = 0.0001; master.connect(ctx.destination);
-
-  // tone/dynamics (no sidechain)
-  const preGain = ctx.createGain(); preGain.gain.value = 1.05;
-  const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -22; comp.knee.value = 12; comp.ratio.value = 8; comp.attack.value = 0.006; comp.release.value = 0.25;
-  const lowshelf = ctx.createBiquadFilter(); lowshelf.type='lowshelf'; lowshelf.frequency.value=120; lowshelf.gain.value=3;
-  const lowpass = ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 12000; lowpass.Q.value = 0.7; // keep neutral
-
-  // chain: (dry|wet|single|noise) -> preGain -> comp -> lowshelf -> lowpass -> master
-  preGain.connect(comp); comp.connect(lowshelf); lowshelf.connect(lowpass); lowpass.connect(master);
-
-  // analyser for visuals
-  const analyser = ctx.createAnalyser(); analyser.fftSize = 256; lowpass.connect(analyser);
-  setAnalyserNode(analyser);
-  const data = new Uint8Array(analyser.frequencyBinCount);
-  let raf; const tick = () => { analyser.getByteFrequencyData(data); let sum=0; for (let i=0;i<data.length;i++) sum+=data[i]; setAudioLevel(sum/(data.length*255)); raf=requestAnimationFrame(tick); }; tick();
-
-  // Crossfade nodes
-  const dryGain = ctx.createGain(); dryGain.gain.value = 1;
-  const wetGain = ctx.createGain(); wetGain.gain.value = 0;
-
-  let elDry=null, elWet=null, elSingle=null, src=null;
-
-  if (content.audioDryURL || content.audioWetURL) {
-    if (content.audioDryURL) { elDry = new Audio(content.audioDryURL); elDry.loop = true; elDry.crossOrigin = 'anonymous'; ctx.createMediaElementSource(elDry).connect(dryGain); elDry.play().catch(()=>{}); }
-    if (content.audioWetURL) { elWet = new Audio(content.audioWetURL); elWet.loop = true; elWet.crossOrigin = 'anonymous'; ctx.createMediaElementSource(elWet).connect(wetGain); elWet.play().catch(()=>{}); }
-    dryGain.connect(preGain); wetGain.connect(preGain);
-  } else if (content.audioDataURL) {
-    elSingle = new Audio(content.audioDataURL); elSingle.loop = true; elSingle.crossOrigin = 'anonymous';
-    ctx.createMediaElementSource(elSingle).connect(preGain); elSingle.play().catch(()=>{});
-  } else {
-    src = ctx.createBufferSource(); src.buffer = createNoiseBuffer(ctx, 3.0); src.loop = true;
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.9;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300;
-    const g = ctx.createGain(); g.gain.value = 0.28;
-    src.connect(bp).connect(hp).connect(g).connect(preGain); src.start();
-  }
-
-  // scroll reactivity — crossfade only
-  const apply = () => {
-    const maxS = Math.max(1, document.body.scrollHeight - window.innerHeight);
-    const r = Math.min(1, Math.max(0, window.scrollY / maxS));
-    const x = computeCrossfade(r);
-    if (elDry || elWet) {
-      dryGain.gain.setTargetAtTime(x.dry, ctx.currentTime, 0.08);
-      wetGain.gain.setTargetAtTime(x.wet, ctx.currentTime, 0.08);
+    *,*:before,*:after{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font:400 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     }
-  };
-  apply(); const onScroll=()=>apply(); window.addEventListener('scroll', onScroll); scrollRef.current = onScroll;
+    a{color:inherit; text-decoration:none}
+    .container{max-width:1120px; margin:0 auto; padding:0 24px}
+    /* texture */
+    .texture{position:fixed; inset:0; pointer-events:none; opacity:.9; z-index:0;
+      background:
+        radial-gradient(1200px 800px at 80% -10%, rgba(255,255,255,.03), transparent 60%),
+        radial-gradient(900px 600px at -10% 110%, rgba(255,255,255,.02), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.02), rgba(255,255,255,.02) 1px, transparent 1px, transparent 3px),
+        radial-gradient(1200px 1200px at 50% 50%, rgba(255,255,255,.02), transparent 60%);
+    }
+    /* spotlight */
+    .spot{position:fixed; inset:0; z-index:1; pointer-events:none; mix-blend-mode:screen}
+    /* header */
+    .nav{position:relative; z-index:2; padding:16px 0}
+    .nav-row{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap}
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand-spin{height:36px; width:36px; display:grid; place-items:center; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,.4)}
+    .spin{height:24px; width:24px; border:2px solid color-mix(in oklab, var(--primary) 20%, transparent); border-top-color:var(--primary); border-radius:999px; animation:spin 6s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .links{display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+    .nav a.link{opacity:.8} .nav a.link:hover{opacity:1}
+    .btn{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--primary); color:var(--primary); background:transparent; padding:8px 12px; border-radius:999px; font-size:12px; cursor:pointer}
+    .badge{display:inline-flex; align-items:center; border:1px solid var(--primary); padding:2px 8px; border-radius:999px; font:700 10px/1.6 system-ui; letter-spacing:.08em}
+    .badge.on{background:var(--primary); color:#111}
+    .range{height:6px; width:120px}
+    .range input{width:100%}
+    @media (max-width:768px){ .range{width:84px} }
+    /* hero */
+    .hero{position:relative; z-index:2; padding:0 0 48px 0}
+    .panel{overflow:hidden; border:1px solid color-mix(in oklab, var(--primary) 30%, transparent); border-radius:24px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--primary) 15%, transparent), 0 0 28px color-mix(in oklab, var(--primary) 20%, transparent)}
+    .panel .video-wrap{position:relative; height:400px}
+    .panel video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scale(1.02); transition:transform .7s cubic-bezier(.22,1,.36,1)}
+    .panel.zoom video{transform:scale(1.35)}
+    .panel .vignette{position:absolute; inset:0; pointer-events:none; background:radial-gradient(110% 80% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,.15) 60%, rgba(0,0,0,.35) 100%)}
+    .panel .glow{position:absolute; inset:0; pointer-events:none; transition:box-shadow .5s}
+    .panel:hover .glow{box-shadow:inset 0 0 0 2px color-mix(in oklab, var(--primary) 40%, transparent), 0 0 28px color-mix(in oklab, var(--primary) 35%, transparent)}
+    .h1{font-weight:900; letter-spacing:-.02em; margin:24px 0 0; font-size:42px; line-height:1.1}
+    @media (min-width:900px){ .h1{font-size:64px} }
+    .muted{color:var(--muted)}
+    .cta{display:flex; gap:12px; flex-wrap:wrap; margin-top:24px}
+    .primary{background:var(--primary); color:#111; border-radius:16px; padding:12px 20px; display:inline-flex; align-items:center; gap:8px; font-weight:600}
+    .ghost{border:1px solid var(--primary); border-radius:16px; padding:12px 20px}
+    /* grid */
+    .work{padding:0 0 72px}
+    .grid{display:grid; gap:16px}
+    @media (min-width:720px){ .grid{grid-template-columns:repeat(2,1fr)} }
+    @media (min-width:1024px){ .grid{grid-template-columns:repeat(3,1fr)} }
+    .card{position:relative; overflow:hidden; border:1px solid color-mix(in oklab, var(--primary) 30%, transparent); border-radius:18px; background:rgba(0,0,0,.3); box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--primary) 15%, transparent), 0 0 18px color-mix(in oklab, var(--primary) 20%, transparent)}
+    .card-media{aspect-ratio:4/3; background:linear-gradient(135deg, color-mix(in oklab, var(--primary) 15%, transparent), rgba(255,255,255,.06) 50%, #000 100%)}
+    .card h3{margin:8px 0 0; font-size:18px}
+    .card .tag{font-size:13px; color:var(--primary)}
+    .card .body{position:absolute; inset:0; display:flex; flex-direction:column; justify-content:end; padding:12px}
+    /* footer */
+    .footer{border-top:1px solid var(--border); color:rgba(255,255,255,.7); padding:24px 0; font-size:14px}
+    /* modal */
+    .modal{position:fixed; inset:0; z-index:60; display:none}
+    .modal.open{display:block}
+    .backdrop{position:absolute; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(3px); opacity:0; transition:opacity .3s}
+    .modal.open .backdrop{opacity:1}
+    .sheet{position:absolute; left:50%; top:8vh; transform:translate(-50%, 0); width:92vw; max-width:1100px; border:1px solid color-mix(in oklab, var(--primary) 40%, transparent); background:rgba(0,0,0,.8); border-radius:22px; overflow:hidden; box-shadow:0 20px 80px rgba(0,0,0,.6)}
+    .sheet-inner{display:grid; gap:16px; padding:16px}
+    @media(min-width:900px){ .sheet-inner{grid-template-columns:3fr 2fr} }
+    .thumbs{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px}
+    .aspect-video{aspect-ratio:16/9}
+    .aspect-4-3{aspect-ratio:4/3}
+    .btn-close{border:1px solid var(--primary); color:var(--primary); background:transparent; padding:10px 14px; border-radius:12px; cursor:pointer}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="texture"></div>
+  <div class="spot" id="spot"></div>
 
-  master.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), ctx.currentTime + 0.4);
-  audioRef.current = { ctx, master, preGain, comp, lowshelf, lowpass, analyser, data, raf, elDry, elWet, elSingle, src, dryGain, wetGain };
-  setAudioOn(true);
-}
-
-  function stopStorm() {
-  const a = audioRef.current; if (!a) return;
-  try {
-    const t = a.ctx.currentTime; a.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-    setTimeout(() => {
-      if (scrollRef.current) window.removeEventListener('scroll', scrollRef.current);
-      if (a.raf) cancelAnimationFrame(a.raf);
-      if (a.elDry) { try { a.elDry.pause(); } catch {} }
-      if (a.elWet) { try { a.elWet.pause(); } catch {} }
-      if (a.elSingle) { try { a.elSingle.pause(); } catch {} }
-      a.ctx.close();
-      setAnalyserNode(null);
-      setAudioLevel(0);
-      audioRef.current = null;
-      setAudioOn(false);
-    }, 350);
-  } catch {
-    audioRef.current = null;
-    setAudioOn(false);
-  }
-}
-
-  const toggleAudio = () => { if (!audioRef.current) startStorm(); else stopStorm(); };
-
-  return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-black text-white" style={{ backgroundColor: content.bg }}>
-      <div className="bm-texture" />
-      {/* HUD */}
-      
-
-      {/* Spotlight */}
-      <div className="pointer-events-none fixed inset-0 z-10" style={{ background: `radial-gradient(520px circle at ${mouse.x}px ${mouse.y}px, rgba(255,212,0,0.18), transparent 60%)`, mixBlendMode: "screen" }} />
-
-      {/* NAV */}
-      <nav className="relative z-20 mx-auto flex max-w-6xl flex-wrap items-center justify-between px-4 py-4 md:flex-nowrap md:px-6 md:py-6">
-  <div className="flex items-center gap-3">
-    <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-white/10 bg-black/40">
-      <div
-        className="h-6 w-6 animate-spin-slow rounded-full border-2"
-        style={{ borderColor: `${content.colorPrimary}33`, borderTopColor: content.colorPrimary }}
-      />
+  <header class="nav">
+    <div class="container nav-row">
+      <div class="brand">
+        <div class="brand-spin"><div class="spin"></div></div>
+        <div style="font-weight:700; letter-spacing:.02em">BELITZMEDIA</div>
+      </div>
+      <div class="links">
+        <a class="link" href="#work">Work</a>
+        <a class="link" href="#contact">Contact</a>
+        <button id="btnStorm" class="btn">
+          <svg id="icoVol" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9v6h4l5 4V5l-5 4H6z"/></svg>
+          <span style="letter-spacing:.08em;text-transform:uppercase">Storm</span>
+        </button>
+        <span id="badge" class="badge">OFF</span>
+        <div class="range"><input id="volume" type="range" min="0" max="100" value="60"></div>
+      </div>
     </div>
-    <span className="text-lg font-semibold tracking-wide">BELITZMEDIA</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div id="heroPanel" class="panel">
+          <div class="video-wrap" id="heroVideoWrap">
+            <video id="heroVideo" autoplay muted playsinline loop preload="metadata"
+              src="https://video.wixstatic.com/video/87dcf7_97cef957558045dd8f28a3295cdc443c/1080p/mp4/file.mp4"></video>
+            <div class="vignette"></div>
+            <div class="glow"></div>
+          </div>
+        </div>
+        <h1 class="h1">Cutting‑Edge Creative &<br>High‑Impact Editing</h1>
+        <p class="muted" style="max-width:680px">Belitzmedia baut dir die Show, die hängen bleibt: kompromissloses Editing, starke Markeninszenierung, schnelles Storytelling.</p>
+        <div class="cta">
+          <a href="#work" class="primary">Showreel ansehen
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111"><path d="M7 17L17 7M8 7h9v9"/></svg>
+          </a>
+          <a id="contact" href="mailto:hello@belitz.media" class="ghost">hello@belitz.media</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="work" class="work">
+      <div class="container">
+        <h2 style="font-size:28px; margin:0 0 16px; font-weight:700">Selected Work</h2>
+        <div class="grid">
+          <!-- Mall of Berlin (modal trigger) -->
+          <a href="#" class="card" data-project="mall">
+            <div class="card-media"></div>
+            <div class="body">
+              <div class="tag">Editor</div>
+              <h3>Mall of Berlin</h3>
+            </div>
+          </a>
+          <a href="#" class="card"><div class="card-media"></div><div class="body"><div class="tag">Cut und Edit</div><h3>SugarGang</h3></div></a>
+          <a href="#" class="card"><div class="card-media"></div><div class="body"><div class="tag">Imagefilme & Reels</div><h3>SPD Gütersloh</h3></div></a>
+          <a href="#" class="card"><div class="card-media"></div><div class="body"><div class="tag">Youtube Video Cut und Edit</div><h3>Nicflex</h3></div></a>
+          <a href="#" class="card"><div class="card-media"></div><div class="body"><div class="tag">Tutorials, Reels</div><h3>VegaHappy</h3></div></a>
+          <a href="#" class="card"><div class="card-media"></div><div class="body"><div class="tag">Musikvideos, Reels</div><h3>SpyViral</h3></div></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container" style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap">
+      <div>© <span id="year"></span> Belitzmedia. All rights reserved.</div>
+      <div style="display:flex; gap:16px">
+        <a href="#">Impressum</a>
+        <a href="#">Datenschutz</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="backdrop" id="backdrop"></div>
+    <div class="sheet" id="sheet">
+      <div class="sheet-inner">
+        <div>
+          <div class="aspect-video" style="overflow:hidden; border:1px solid var(--border); border-radius:12px; background:rgba(0,0,0,.4)">
+            <img id="imgBig" src="" alt="Mall of Berlin – groß" style="width:100%; height:100%; object-fit:cover">
+          </div>
+          <div class="thumbs">
+            <div class="aspect-4-3" style="overflow:hidden; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.4)"><img id="img1" src="" alt="" style="width:100%; height:100%; object-fit:cover"></div>
+            <div class="aspect-4-3" style="overflow:hidden; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.4)"><img id="img2" src="" alt="" style="width:100%; height:100%; object-fit:cover"></div>
+            <div class="aspect-4-3" style="overflow:hidden; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.4)"><img id="img3" src="" alt="" style="width:100%; height:100%; object-fit:cover"></div>
+          </div>
+        </div>
+        <div>
+          <div style="color:var(--primary); font-size:14px; margin-bottom:6px">Editor</div>
+          <h3 style="margin:0 0 10px; font-size:22px">Mall of Berlin</h3>
+          <p class="muted" style="font-size:14px">
+            Hochverdichteter Social‑Cut für Retail. Rhythmische Montagen, schnelle Transitions, harte Impacts – optimiert
+            für 9:16 &amp; 1:1. Color‑Grading im Black/Yellow Look, Sounddesign mit Weather‑Atmos und Punch‑Impacts.
+          </p>
+          <ul class="muted" style="font-size:14px; margin:12px 0 0 18px">
+            <li>Format: 9:16, 1:1, 16:9</li>
+            <li>Leistungen: Schnitt, Sounddesign, Grading, Titel</li>
+            <li>Tools: Premiere Pro, After Effects</li>
+          </ul>
+          <div style="display:flex; gap:10px; margin-top:16px">
+            <button id="btnClose" class="btn-close">Schließen</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  {/* Desktop controls */}
-  <div className="items-center gap-4 text-sm hidden md:flex">
-    <a className="opacity-80 transition hover:opacity-100" href="#work">Work</a>
-    <a className="opacity-80 transition hover:opacity-100" href="#contact">Contact</a>
-    <div className="flex items-center gap-2">
-      <button
-        onClick={toggleAudio}
-        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs hover:shadow"
-        style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}
-      >
-        {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>}<span className="uppercase tracking-wider">Storm</span>
-      </button>
-      <span
-        aria-live="polite"
-        className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider"
-        style={{
-          borderColor: content.colorPrimary,
-          background: audioOn ? content.colorPrimary : 'transparent',
-          color: audioOn ? '#111' : content.colorPrimary
-        }}
-      >
-        {audioOn ? 'ON' : 'OFF'}
-      </span>
-      <div className="ml-2 flex items-center gap-2">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={Math.round(volume*100)}
-          onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)}
-          className="h-1.5 w-28 cursor-pointer"
-          style={{ accentColor: content.colorPrimary }}
-        />
-        <span className="text-[10px] tabular-nums opacity-80">{Math.round(volume*100)}%</span>
-      </div>
-    </div>
-  </div>
+  <!-- Audio elements (no autoplay) -->
+  <audio id="dry" src="https://static.wixstatic.com/mp3/87dcf7_5f1422684fd742fdb18491a909df11c7.mp3" preload="none" loop crossorigin="anonymous"></audio>
+  <audio id="wet" src="https://static.wixstatic.com/mp3/87dcf7_92cafbf4cd64462bb721fb79c01c31ac.mp3" preload="none" loop crossorigin="anonymous"></audio>
 
-  {/* Mobile controls */}
-  <div className="flex items-center gap-2 md:hidden">
-    <button
-      aria-label={audioOn? 'Storm anhalten' : 'Storm starten'}
-      onClick={toggleAudio}
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
-      style={{ borderColor: content.colorPrimary, color: content.colorPrimary }}
-    >
-      {audioOn ? <Volume2 size={16}/> : <VolumeX size={16}/>}
-      <span className="uppercase tracking-wider hidden xs:inline">Storm</span>
-    </button>
-    <span
-      className="inline-flex h-2.5 w-2.5 rounded-full border"
-      style={{ borderColor: content.colorPrimary, background: audioOn ? content.colorPrimary : 'transparent' }}
-    />
-    <input
-      type="range"
-      min="0"
-      max="100"
-      value={Math.round(volume*100)}
-      onChange={(e)=>setVolume(parseInt(e.target.value,10)/100)}
-      className="h-1.5 w-20 cursor-pointer"
-      style={{ accentColor: content.colorPrimary }}
-    />
-  </div>
-</nav>
+  <script>
+    const yearEl = document.getElementById('year'); yearEl.textContent = new Date().getFullYear();
 
-      {/* HERO */}
-      <section className="relative z-20 mx-auto max-w-6xl px-6 pb-12">
-        <div className="relative mb-8 overflow-hidden rounded-3xl border bg-black/30" style={{borderColor: content.colorPrimary + '55', boxShadow: '0 0 0 1px ' + content.colorPrimary + '22 inset, 0 0 28px ' + content.colorPrimary + '22'}}>
-                    <HeroVideo src="https://video.wixstatic.com/video/87dcf7_e2b871f973424f63b87abafd34a2d65b/1080p/mp4/file.mp4" color={content.colorPrimary} />
-          
-        </div>
-        <h1 className="whitespace-pre-line text-5xl font-black leading-tight tracking-tight md:text-7xl">{content.heroTitle}</h1>
-        <p className="mt-6 max-w-2xl text-white/70">{content.heroCopy}</p>
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <a href="#work" className="group inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-medium transition hover:scale-[1.02]" style={{ background: content.colorPrimary, color: "#111" }}>
-            Showreel ansehen <ArrowUpRight className="transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" size={18}/>
-          </a>
-          <a href={`mailto:${content.contactEmail}`} className="rounded-2xl border px-5 py-3 font-medium text-white/90 transition hover:bg-white/5" style={{ borderColor: content.colorPrimary }}>
-            {content.contactEmail}
-          </a>
-        </div>
-      </section>
+    // Spotlight follows cursor
+    const spot = document.getElementById('spot');
+    window.addEventListener('mousemove', (e)=>{
+      spot.style.background = `radial-gradient(520px circle at ${e.clientX}px ${e.clientY}px, rgba(255,212,0,0.18), transparent 60%)`;
+    }, {passive:true});
 
-      {/* WORK */}
-      <section id="work" className="relative z-20 mx-auto max-w-6xl px-6 pb-24">
-        <div className="mb-6 flex items-end justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Selected Work</h2>
-        </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {(content.projects?.length ? content.projects : DEFAULT_CONTENT.projects).map((p, i) => (
-            <ProjectCard key={i} {...p} color={content.colorPrimary} />
-          ))}
-        </div>
-      </section>
+    // Hero zoom on hover/tap
+    const heroPanel = document.getElementById('heroPanel');
+    const heroWrap = document.getElementById('heroVideoWrap');
+    heroWrap.addEventListener('mouseenter', ()=>heroPanel.classList.add('zoom'));
+    heroWrap.addEventListener('mouseleave', ()=>heroPanel.classList.remove('zoom'));
+    heroWrap.addEventListener('touchstart', ()=>{
+      heroPanel.classList.add('zoom');
+      setTimeout(()=>heroPanel.classList.remove('zoom'), 1200);
+    }, {passive:true});
 
-      {/* CTA */}
-      <section id="contact" className="relative z-20 mx-auto max-w-6xl px-6 pb-20">
-        <div className="flex flex-col justify-between gap-6 rounded-3xl border p-6 md:flex-row md:items-center" style={{ borderColor: content.colorPrimary }}>
-          <div>
-            <h3 className="text-2xl font-semibold tracking-tight md:text-3xl">Bereit, aufzudrehen?</h3>
-            <p className="mt-2 max-w-xl text-white/70">Ein Call, ein Plan, ein Schnitt – und deine Marke bekommt den Punch.</p>
-          </div>
-          <a href={`mailto:${content.contactEmail}`} className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 font-medium transition hover:scale-[1.02]" style={{ background: content.colorPrimary, color: "#111" }}>
-            {content.contactEmail} <ArrowUpRight size={18}/>
-          </a>
-        </div>
-      </section>
+    // Audio logic (no WebAudio, simple media elements)
+    const btnStorm = document.getElementById('btnStorm');
+    const badge = document.getElementById('badge');
+    const vol = document.getElementById('volume');
+    const dry = document.getElementById('dry');
+    const wet = document.getElementById('wet');
+    let master = 0.6;
+    let audioOn = false;
 
-      {/* FOOTER */}
-      <footer className="relative z-20 border-t border-white/10 px-6 py-8 text-sm text-white/60">
-        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <div>© {new Date().getFullYear()} Belitzmedia. All rights reserved.</div>
-          <div className="flex items-center gap-4">
-            <a className="hover:text-white" href="#">Impressum</a>
-            <a className="hover:text-white" href="#">Datenschutz</a>
-          </div>
-        </div>
-      </footer>
+    function eqPower(r){ r=Math.min(1,Math.max(0,r)); return { dry: Math.cos((Math.PI/2)*r), wet: Math.sin((Math.PI/2)*r) }; }
+    function applyVolumes(){
+      const maxS = Math.max(1, document.body.scrollHeight - innerHeight);
+      const r = Math.min(1, Math.max(0, scrollY / maxS));
+      const x = eqPower(r);
+      dry.volume = Math.max(0, Math.min(1, x.dry * master));
+      wet.volume = Math.max(0, Math.min(1, x.wet * master));
+    }
+    let rafScroll = 0;
+    function onScroll(){ if (rafScroll) return; rafScroll = requestAnimationFrame(()=>{ rafScroll = 0; applyVolumes(); }); }
+    window.addEventListener('scroll', onScroll, {passive:true});
 
-      {/* EDITOR */}
-      
+    vol.addEventListener('input', (e)=>{ master = Math.max(0, Math.min(1, (e.target.value|0)/100 )); applyVolumes(); });
 
-      {/* styles */}
-      <style>{`
-        @keyframes spin-slow{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-        .animate-spin-slow{animation:spin-slow 6s linear infinite}
-        @keyframes bm-wipe{0%{transform:translateX(-160%)}100%{transform:translateX(160%)}}
-        .bm-wipe-slow{position:absolute;inset:-25%;background:linear-gradient(80deg, transparent 35%, rgba(255,255,255,.38) 50%, transparent 65%);filter:blur(24px);pointer-events:none;animation:bm-wipe 8s ease-in-out infinite}
-        .bm-card{position:relative}
-        .bm-card-sweep{position:absolute;inset:-20%;background:linear-gradient(75deg, transparent 45%, rgba(255,255,255,.28) 50%, transparent 55%);filter:blur(10px);transform:translateX(-120%);pointer-events:none}
-        .bm-card:hover .bm-card-sweep{animation:bm-wipe 2.6s ease-in-out infinite}
-        /* Dark texture background */
-        .bm-texture{position:fixed;inset:0;z-index:0;opacity:.9;pointer-events:none;background:
-          radial-gradient(1200px 800px at 80% -10%, rgba(255,255,255,.03), transparent 60%),
-          radial-gradient(900px 600px at -10% 110%, rgba(255,255,255,.02), transparent 60%),
-          repeating-linear-gradient(0deg, rgba(255,255,255,.02), rgba(255,255,255,.02) 1px, transparent 1px, transparent 3px),
-          radial-gradient(1200px 1200px at 50% 50%, rgba(255,255,255,.02), transparent 60%);
-        }
-      `}</style>
-    </div>
-  );
-}
+    async function startAudio(){
+      try{
+        await Promise.all([ dry.play().catch(()=>{}), wet.play().catch(()=>{}) ]);
+      }catch(e){ /* ignore */ }
+      audioOn = true; badge.textContent = 'ON'; badge.classList.add('on');
+      applyVolumes();
+    }
+    function stopAudio(){
+      dry.pause(); wet.pause();
+      audioOn = false; badge.textContent = 'OFF'; badge.classList.remove('on');
+    }
+    btnStorm.addEventListener('click', ()=> audioOn ? stopAudio() : startAudio());
 
-// ===== Simple 3D-ish Logo (mouse shadow + big halo) =====
-function LogoLite({ color, text, level, mouse }){
-  const box = useRef(null);
-  const [rot, setRot] = useState({x:0,y:0});
-  const [zoom, setZoom] = useState(1);
-  const [shadow, setShadow] = useState({dx:0,dy:10,blur:36});
-  const move = (e)=>{ const el = box.current; if(!el) return; const r = el.getBoundingClientRect(); const px=(e.clientX-r.left)/r.width, py=(e.clientY-r.top)/r.height; setRot({x:(0.5-py)*14,y:(px-0.5)*20}); };
-  useEffect(()=>{ const onScroll=()=>{ const y=window.scrollY||0; setZoom(1+Math.min(y/1400,0.06)); }; onScroll(); window.addEventListener('scroll',onScroll); return ()=>window.removeEventListener('scroll',onScroll); },[]);
-  useEffect(()=>{ if(!box.current || !mouse) return; const r=box.current.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2; const dx=(cx-mouse.x)/18, dy=(cy-mouse.y)/18; const blur=28+Math.min(80, Math.hypot(dx,dy)*2.2); setShadow({dx,dy,blur}); },[mouse]);
-  const left = (text||'BELITZMEDIA').slice(0,6), right=(text||'BELITZMEDIA').slice(6);
-  // Audio-reactive glow
-  // Audio-reactive glow (smoothed & thresholded)
-  const reactRef = useRef(0);
-  const [react, setReact] = useState(0);
-  useEffect(()=>{
-    const lv = Math.max(0, Math.min(1, level || 0));
-    const target = Math.max(0, (lv - 0.18) / 0.55); // floor + compression
-    const sm = reactRef.current + (target - reactRef.current) * 0.12;
-    reactRef.current = sm; setReact(sm);
-  }, [level]);
-  const haloA = 0.10 + 0.18 * react;
-  const glowNear = 0.18 + 0.42 * react;
-  const glowFar  = 0.10 + 0.32 * react;
-  return (
-    <div ref={box} onMouseMove={move} onMouseLeave={()=>setRot({x:0,y:0})} className="relative h-[400px] w-full select-none" style={{perspective:'1000px'}}>
-      {/* big halo */}
-      <div className="pointer-events-none absolute -inset-12" style={{background:`radial-gradient(45% 35% at 50% 55%, rgba(255,255,255,${haloA}), transparent 70%)`, filter:'blur(35px)'}}/>
-      <div className="absolute inset-0 grid place-items-center will-change-transform" style={{transform:`rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${zoom})`, transformStyle:'preserve-3d', transition:'transform 160ms ease'}}>
-        <div className="relative" style={{transform:'translateZ(40px)', filter:`drop-shadow(${shadow.dx}px ${shadow.dy}px ${shadow.blur}px rgba(0,0,0,0.6))`}}>
-          {Array.from({length:8}).map((_,i)=> (
-            <div key={i} className="absolute inset-0 select-none" aria-hidden style={{transform:`translateZ(${(i-7)*3}px)`, filter:`blur(${(7-i)*0.5}px)`, opacity:0.06+(i*0.035)}}>
-              <div className="text-6xl md:text-8xl tracking-tight" style={{color:'#fff', fontWeight:900, textShadow:'0 2px 0 #000, 0 10px 24px rgba(0,0,0,0.65)'}}>
-                <span style={{fontWeight:300, letterSpacing:'0.06em'}}>{left}</span>
-                <span style={{fontWeight:900}}>{right}</span>
-              </div>
-            </div>
-          ))}
-          <div className="relative">
-            <div className="text-6xl md:text-8xl tracking-tight" style={{color:'#fff', textShadow:`0 1px 0 #000, 0 2px 0 #000, 0 14px 30px rgba(0,0,0,0.7), 0 0 90px rgba(255,255,255,${glowNear}), 0 0 180px rgba(255,255,255,${glowFar})`}}>
-              <span style={{fontWeight:300, letterSpacing:'0.06em'}}>{left}</span>
-              <span style={{fontWeight:900}}>{right}</span>
-            </div>
-          </div>
-          <div className="absolute left-1/2 top-full h-6 w-[60%] -translate-x-1/2 -translate-y-2 rounded-full opacity-60 blur-md" style={{background:'radial-gradient(60% 120% at 50% 0%, rgba(0,0,0,0.55), transparent 70%)'}}/>
-        </div>
-      </div>
-    </div>
-  );
-}
+    // Modal (Mall of Berlin) with FLIP — keep centered by always including translate(-50%,0)
+    const modal = document.getElementById('modal');
+    const sheet = document.getElementById('sheet');
+    const backdrop = document.getElementById('backdrop');
+    const btnClose = document.getElementById('btnClose');
 
-// ===== Hero Video (autoplay muted, strong zoom on hover/tap) =====
-function HeroVideo({ src, color }){
-  const [hover, setHover] = useState(false);
-  const tapTimer = useRef(0);
-  useEffect(()=>()=>{ if (tapTimer.current) clearTimeout(tapTimer.current); },[]);
-  const onTouch = () => {
-    setHover(true);
-    if (tapTimer.current) clearTimeout(tapTimer.current);
-    tapTimer.current = setTimeout(()=> setHover(false), 1200);
-  };
-  return (
-    <div className="relative h-[400px] w-full overflow-hidden" onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} onTouchStart={onTouch}>
-      <video autoPlay muted playsInline loop preload="metadata" className="absolute inset-0 h-full w-full object-cover will-change-transform"
-             style={{ transform:`scale(${hover?1.35:1.02})`, transition:'transform 700ms cubic-bezier(0.22,1,0.36,1)' }}
-             onCanPlay={(e)=>{ try{ e.currentTarget.play(); }catch{} }} src={src} />
-      {/* vignette for depth */}
-      <div className="pointer-events-none absolute inset-0" style={{background:'radial-gradient(110% 80% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.35) 100%)'}}/>
-      {/* border/glow reacts to hover */}
-      <div className="pointer-events-none absolute inset-0 transition-shadow duration-500" style={{boxShadow: hover?`inset 0 0 0 2px ${color}66, 0 0 28px ${color}44`:`inset 0 0 0 1px ${color}33, 0 0 18px ${color}22`}}/>
-    </div>
-  );
-}
+    // Placeholder images (replace with your own if you like)
+    const imgBig = document.getElementById('imgBig');
+    const img1 = document.getElementById('img1');
+    const img2 = document.getElementById('img2');
+    const img3 = document.getElementById('img3');
+    const placeholders = [
+      'https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1600&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1600585154526-990dced4db0d?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1496307639047-41a84b299059?q=80&w=1200&auto=format&fit=crop'
+    ];
+    function setImages(arr){
+      imgBig.src = arr[0] || ''; img1.src = arr[1] || ''; img2.src = arr[2] || ''; img3.src = arr[3] || '';
+    }
+    setImages(placeholders);
 
-// ===== Project Card (parallax zoom + glow icon) =====
-function ProjectCard({ title, tag, img, href, color }){
-  const ref = useRef(null);
-  const [hover, setHover] = useState(false);
-  const [tilt, setTilt] = useState({x:0,y:0});
-  const [shift, setShift] = useState({x:0,y:0});
-  const move = (e)=>{ const el = ref.current; if(!el) return; const r = el.getBoundingClientRect(); const px=(e.clientX-r.left)/r.width, py=(e.clientY-r.top)/r.height; setTilt({x:(0.5-py)*8,y:(px-0.5)*10}); setShift({x:(px-0.5)*16,y:(py-0.5)*-16}); };
-  return (
-    <a href={href||"#"} target={href?"_blank":undefined} rel={href?"noopener noreferrer":undefined}
-       className="bm-card group relative block overflow-hidden rounded-2xl border bg-black/30" ref={ref} style={{borderColor: color + '55', boxShadow: '0 0 0 1px ' + color + '22 inset, 0 0 18px ' + color + '22'}}
-       onMouseEnter={()=>setHover(true)} onMouseLeave={()=>{setHover(false);setTilt({x:0,y:0});setShift({x:0,y:0});}} onMouseMove={move}>
-      <div className="bm-card-sweep" />
-      <div className="aspect-[4/3] w-full will-change-transform" style={{transform:`rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hover?1.045:1})`,transition:"transform 180ms ease"}}>
-        {img? <img src={img} alt={title} className="h-full w-full object-cover" style={{transform:`translate3d(${shift.x}px,${shift.y}px,0) scale(${hover?1.08:1})`,transition:"transform 240ms ease"}}/>
-             : <div className="h-full w-full" style={{background:`linear-gradient(135deg, ${color}22, rgba(255,255,255,.06) 50%, #000 100%)`,transform:`translate3d(${shift.x}px,${shift.y}px,0) scale(${hover?1.05:1})`,transition:"transform 240ms ease"}}/>}
-      </div>
-      <div className="absolute inset-0 flex flex-col justify-end p-4 transition">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm" style={{color}}>{tag}</div>
-            <div className="text-lg font-semibold">{title}</div>
-          </div>
-          <div className="rounded-full border p-2 opacity-0 transition group-hover:opacity-100" style={{borderColor:color,color,boxShadow:hover?`0 0 0 2px ${color}44,0 0 18px ${color}66,inset 0 0 8px ${color}55`:'none',background:hover?`${color}1a`:'transparent',transform:hover?"scale(1.06)":"scale(1)"}}>
-            <ArrowUpRight size={18}/>
-          </div>
-        </div>
-      </div>
-    </a>
-  );
-}
+    function openModalFrom(card){
+      const r0 = card.getBoundingClientRect();
+      modal.classList.add('open');
+      document.documentElement.style.overflow='hidden';
+      sheet.style.willChange = 'transform';
+      // ensure base centering is preserved
+      sheet.style.transformOrigin = 'top left';
+      // measure end rect after modal open
+      const r1 = sheet.getBoundingClientRect();
+      const sx = Math.max(.01, r0.width / Math.max(1, r1.width));
+      const sy = Math.max(.01, r0.height / Math.max(1, r1.height));
+      const dx = r0.left - r1.left;
+      const dy = r0.top - r1.top;
+      // Start from card -> to centered sheet
+      sheet.style.transition = 'transform 560ms cubic-bezier(.22,1,.36,1)';
+      sheet.style.transform = `translate(-50%, 0) translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+      requestAnimationFrame(()=>{ sheet.style.transform = 'translate(-50%, 0) translate(0,0) scale(1,1)'; });
+    }
+    function closeModal(){
+      const trigger = document.querySelector('.card[data-project="mall"]');
+      if (trigger){
+        const r0 = trigger.getBoundingClientRect();
+        const r1 = sheet.getBoundingClientRect();
+        const sx = Math.max(.01, r0.width / Math.max(1, r1.width));
+        const sy = Math.max(.01, r0.height / Math.max(1, r1.height));
+        const dx = r0.left - r1.left;
+        const dy = r0.top - r1.top;
+        sheet.style.transform = `translate(-50%, 0) translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+        sheet.addEventListener('transitionend', handleEnd, {once:true});
+      }else{
+        handleEnd();
+      }
+      function handleEnd(){
+        modal.classList.remove('open');
+        sheet.style.transform='translate(-50%, 0)'; sheet.style.transition=''; sheet.style.willChange='';
+        document.documentElement.style.overflow='';
+      }
+    }
+    document.querySelector('.card[data-project="mall"]').addEventListener('click', (e)=>{ e.preventDefault(); openModalFrom(e.currentTarget); });
+    backdrop.addEventListener('click', closeModal);
+    btnClose.addEventListener('click', closeModal);
 
-// ===== Editor (compact) =====
-function EditorPanel({ content, setContent }){
-  const set = (patch)=> setContent({ ...content, ...patch });
-  const onAudio = (e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>set({ audioDataURL:r.result }); r.readAsDataURL(f); };
-  const onAudioDry = (e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>set({ audioDryURL:r.result }); r.readAsDataURL(f); };
-  const onAudioWet = (e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>set({ audioWetURL:r.result }); r.readAsDataURL(f); };
-  const onImg = (i,e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ const list=[...(content.projects||[])]; list[i]={...list[i], img:r.result}; set({ projects:list }); }; r.readAsDataURL(f); };
-  const upd = (i,patch)=>{ const list=[...(content.projects||[])]; list[i]={...list[i],...patch}; set({ projects:list }); };
-
-  return (
-    <div className="fixed right-4 top-16 z-50 w-[360px] max-w-[92vw] rounded-2xl border border-white/15 bg-black/70 p-4 backdrop-blur">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-sm font-medium">Editor</div>
-        <div className="flex gap-2">
-          <button onClick={()=>{ localStorage.removeItem('belitzLandingContent'); setContent({ ...DEFAULT_CONTENT }); }} className="rounded-md border border-white/15 px-2 py-1 text-xs hover:bg-white/5">Reset</button>
-        </div>
-      </div>
-
-      <div className="space-y-3 text-sm">
-        <div>
-          <label className="mb-1 block opacity-80">Primärfarbe</label>
-          <input type="color" value={content.colorPrimary} onChange={(e)=>set({ colorPrimary:e.target.value })} className="h-9 w-full rounded-md border border-white/20 bg-black/40"/>
-        </div>
-        <div>
-          <label className="mb-1 block opacity-80">Hintergrund</label>
-          <input type="color" value={content.bg} onChange={(e)=>set({ bg:e.target.value })} className="h-9 w-full rounded-md border border-white/20 bg-black/40"/>
-        </div>
-        <div>
-          <label className="mb-1 block opacity-80">Hero Titel</label>
-          <textarea value={content.heroTitle} onChange={(e)=>set({ heroTitle:e.target.value })} className="h-20 w-full rounded-md border border-white/20 bg-black/40 p-2"/>
-        </div>
-        <div>
-          <label className="mb-1 block opacity-80">Hero Copy</label>
-          <textarea value={content.heroCopy} onChange={(e)=>set({ heroCopy:e.target.value })} className="h-20 w-full rounded-md border border-white/20 bg-black/40 p-2"/>
-        </div>
-        <div>
-          <label className="mb-1 block opacity-80">Kontakt‑E‑Mail</label>
-          <input type="email" value={content.contactEmail} onChange={(e)=>set({ contactEmail:e.target.value })} className="h-9 w-full rounded-md border border-white/20 bg-black/40 p-2"/>
-        </div>
-
-        <div className="mt-2 rounded-lg border border-white/15 p-3">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-yellow-300/90">Audio</div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">
-                Dry (ohne FX)
-                <input type="file" accept="audio/*" className="hidden" onChange={onAudioDry}/>
-              </label>
-              {content.audioDryURL && <button onClick={()=>set({ audioDryURL:"" })} className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">Entfernen</button>}
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">
-                Wet (mit FX)
-                <input type="file" accept="audio/*" className="hidden" onChange={onAudioWet}/>
-              </label>
-              {content.audioWetURL && <button onClick={()=>set({ audioWetURL:"" })} className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">Entfernen</button>}
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">
-                (Alt) Einzeldatei
-                <input type="file" accept="audio/*" className="hidden" onChange={onAudio}/>
-              </label>
-              {content.audioDataURL && <button onClick={()=>set({ audioDataURL:"" })} className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">Entfernen</button>}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-lg border border-white/15 p-3">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-yellow-300/90">Selected Work</div>
-          {(content.projects||[]).map((p,i)=> (
-            <div key={i} className="mb-3 rounded-md border border-white/10 p-2">
-              <div className="grid grid-cols-1 gap-2">
-                <div className="flex items-center gap-2">
-                  <input placeholder="Titel" value={p.title||""} onChange={(e)=>upd(i,{ title:e.target.value })} className="h-9 flex-1 rounded-md border border-white/20 bg-black/40 p-2"/>
-                  <input placeholder="Tag" value={p.tag||""} onChange={(e)=>upd(i,{ tag:e.target.value })} className="h-9 w-40 rounded-md border border-white/20 bg-black/40 p-2"/>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input placeholder="Link (https://...)" value={p.href||""} onChange={(e)=>upd(i,{ href:e.target.value })} className="h-9 flex-1 rounded-md border border-white/20 bg-black/40 p-2"/>
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/5">
-                    Bild
-                    <input type="file" accept="image/*" className="hidden" onChange={(e)=>onImg(i,e)}/>
-                  </label>
-                </div>
-                {p.img && <img src={p.img} alt="Preview" className="mt-1 h-24 w-full rounded object-cover"/>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ===== Development Smoke Tests ===== =====
-   These tests run once in the browser and validate the pure helper used
-   by the audio engine. They ensure numeric stability and expected ranges. */
-(function runDevTests(){
-  try{
-    if (typeof window === 'undefined' || window.__BELITZ_TESTS__) return;
-    window.__BELITZ_TESTS__ = true;
-    const eps = 1e-6;
-    // r=0 (top of page)
-    let p = computeAudioParams(0);
-    console.assert(Math.abs(p.cutoff - 12000) < eps, 'cutoff @r=0 should be 12000');
-    console.assert(Math.abs(p.drive  - 1.0)   < eps, 'drive @r=0 should be 1.0');
-    console.assert(Math.abs(p.bass   - 3.0)   < eps, 'bass  @r=0 should be +3dB');
-    console.assert(p.lvl > 0 && p.lvl < 1, 'lvl @r=0 in (0,1)');
-    // r=1 (bottom of page)
-    p = computeAudioParams(1);
-    console.assert(Math.abs(p.cutoff - 1000) < 1, 'cutoff @r=1 ≈ 1000Hz');
-    console.assert(Math.abs(p.drive  - 2.0)   < eps, 'drive @r=1 should be 2.0');
-    console.assert(Math.abs(p.bass   - 7.0)   < eps, 'bass  @r=1 should be +7dB');
-    console.assert(p.lvl > 0 && p.lvl < 1, 'lvl @r=1 in (0,1)');
-    // crossfade tests (equal-power)
-    let x = computeCrossfade(0); console.assert(Math.abs(x.dry-1) < 1e-6 && Math.abs(x.wet-0) < 1e-6, 'xfade r=0: dry=1 wet=0');
-    x = computeCrossfade(1); console.assert(Math.abs(x.dry-0) < 1e-6 && Math.abs(x.wet-1) < 1e-6, 'xfade r=1: dry=0 wet=1');
-    x = computeCrossfade(0.5); console.assert(Math.abs(x.dry - Math.SQRT1_2) < 1e-6 && Math.abs(x.wet - Math.SQRT1_2) < 1e-6, 'xfade r=0.5: equal-power');
-
-    // edge clamping
-    p = computeAudioParams(-5); console.assert(p.cutoff === 12000, 'clamp r<0');
-    p = computeAudioParams(5);  console.assert(Math.abs(p.cutoff-1000)<1, 'clamp r>1');
-    console.log('%cBelitz dev tests passed', 'color:#0f0');
-  }catch(err){ console.warn('Belitz dev tests failed:', err); }
-})();
+  </script>
+</body>
+</html>
