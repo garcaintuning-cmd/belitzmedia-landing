@@ -106,7 +106,13 @@
       .grid .card .card-media { transition-duration: .35s; }
     }
     
-  </style>
+  
+    /* Mobile tap-gate: first tap only reveals color */
+    @media (hover: none) and (pointer: coarse) {
+      .grid .card.armed .card-media { filter: none !important; }
+    }
+
+</style>
 </head>
 <body>
   <div class="texture"></div>
@@ -403,13 +409,59 @@
     }
 
     // Delegate clicks to all cards
-    document.getElementById('workGrid').addEventListener('click', (e)=>{
-      const card = e.target.closest('.card');
-      if (!card) return;
-      e.preventDefault();
-      window.__lastCard = card;
-      openModalFrom(card);
-    });
+    
+    (function(){
+      const workGrid = document.getElementById('workGrid');
+      if (!workGrid) return;
+      const isCoarse = window.matchMedia('(pointer:coarse)').matches;
+      let armedCard = null;
+      let armTimer = null;
+      function disarm(){
+        if (armedCard){ armedCard.classList.remove('armed'); armedCard = null; }
+        if (armTimer){ clearTimeout(armTimer); armTimer = null; }
+      }
+      function arm(card){
+        if (armedCard === card){
+          // already armed; next click will open
+          return;
+        }
+        if (armedCard) disarm();
+        armedCard = card;
+        card.classList.add('armed');
+        armTimer = setTimeout(disarm, 3000); // auto-reset after 3s
+      }
+      // Click outside cards disarms (capture to run before grid handler)
+      document.addEventListener('click', (ev)=>{
+        if (!isCoarse) return;
+        const c = ev.target.closest('.card');
+        if (!c) disarm();
+      }, true);
+
+      workGrid.addEventListener('click', (e)=>{
+        const card = e.target.closest('.card');
+        if (!card) return;
+        if (isCoarse){
+          if (!card.classList.contains('armed')){
+            // first tap: reveal color only
+            e.preventDefault();
+            arm(card);
+            return;
+          } else {
+            // second tap within window: open modal
+            e.preventDefault();
+            window.__lastCard = card;
+            disarm();
+            openModalFrom(card);
+            return;
+          }
+        }
+        // desktop: open immediately
+        e.preventDefault();
+        window.__lastCard = card;
+        openModalFrom(card);
+      });
+    })();
+
     backdrop.addEventListener('click', closeModal);
     btnClose.addEventListener('click', closeModal);
   
